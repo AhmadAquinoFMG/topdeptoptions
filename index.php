@@ -1,0 +1,183 @@
+<?php
+require __DIR__ . '/includes/config.php';
+$pageTitle = SITE_NAME . ' — See If You Qualify For Debt Relief';
+require __DIR__ . '/includes/header.php';
+$token = csrf_token();
+?>
+<!-- Full-width progress bar pinned below the header -->
+<div class="topbar">
+    <div class="topbar__fill" id="progress-fill"></div>
+</div>
+
+<section class="funnel">
+    <div class="container">
+        <div class="card">
+            <p class="card__step" id="step-label">Step 1 of 7</p>
+
+            <form id="qualify-form" action="/submit.php" method="post" novalidate>
+                <input type="hidden" name="csrf" value="<?= e($token) ?>">
+
+                <div class="steps">
+                    <!-- Step 1 -->
+                    <fieldset class="step is-active" data-step="1">
+                        <h2 class="step__title"><?= e(SITE_TAGLINE) ?></h2>
+                        <div class="field">
+                            <label class="sr-only" for="debt_amount">Estimated total debt</label>
+                            <select id="debt_amount" name="debt_amount" data-required>
+                                <option value="">Select your total debt…</option>
+                                <option value="100000+">$100,000+</option>
+                                <option value="90000-99999">$90,000 – $99,999</option>
+                                <option value="80000-89999">$80,000 – $89,999</option>
+                                <option value="70000-79999">$70,000 – $79,999</option>
+                                <option value="60000-69999">$60,000 – $69,999</option>
+                                <option value="50000-59999">$50,000 – $59,999</option>
+                                <option value="40000-49999">$40,000 – $49,999</option>
+                                <option value="30000-39999">$30,000 – $39,999</option>
+                                <option value="20000-29999">$20,000 – $29,999</option>
+                                <option value="15000-19999">$15,000 – $19,999</option>
+                                <option value="10000-14999">$10,000 – $14,999</option>
+                                <option value="7500-9999">$7,500 – $9,999</option>
+                                <option value="5000-7499">$5,000 – $7,499</option>
+                                <option value="0-4999">$0 – $4,999</option>
+                            </select>
+                            <p class="error-msg" data-error>Please select your estimated debt amount.</p>
+                        </div>
+                    </fieldset>
+
+                    <!-- Step 2 -->
+                    <fieldset class="step" data-step="2">
+                        <h2 class="step__title">Are you behind on any payments?</h2>
+                        <div class="options" data-radio-group>
+                            <label class="option"><input type="radio" name="payment_status" value="over_60" data-required> Yes, over 60 days behind</label>
+                            <label class="option"><input type="radio" name="payment_status" value="over_30"> Yes, over 30 days behind</label>
+                            <label class="option"><input type="radio" name="payment_status" value="not_behind"> No, I'm not behind</label>
+                        </div>
+                        <p class="error-msg" data-error>Please choose an option.</p>
+                    </fieldset>
+
+                    <!-- Step 3 -->
+                    <fieldset class="step" data-step="3">
+                        <h2 class="step__title">What is your address?</h2>
+                        <div class="field">
+                            <label class="field-label" for="address">Street address</label>
+                            <input type="text" id="address" name="address" autocomplete="street-address" data-required placeholder="123 Main St">
+                        </div>
+                        <div class="field-row">
+                            <div class="field">
+                                <label class="field-label" for="city">City</label>
+                                <input type="text" id="city" name="city" autocomplete="address-level2" data-required>
+                            </div>
+                            <div class="field">
+                                <label class="field-label" for="zip">ZIP code</label>
+                                <input type="text" id="zip" name="zip" inputmode="numeric" autocomplete="postal-code" data-required data-pattern="^\d{5}$" data-error-text="Enter a valid 5-digit ZIP.">
+                            </div>
+                        </div>
+                        <p class="error-msg" data-error>Please complete all address fields.</p>
+                    </fieldset>
+
+                    <!-- Step 4 -->
+                    <fieldset class="step" data-step="4">
+                        <h2 class="step__title">What is your date of birth?</h2>
+                        <p class="step__sub">You must be at least 18 years old to qualify.</p>
+                        <div class="field">
+                            <label class="field-label" for="dob">Date of birth</label>
+                            <input type="date" id="dob" name="dob" data-required data-adult>
+                            <p class="error-msg" data-error>Please enter a valid date of birth (18+).</p>
+                        </div>
+                    </fieldset>
+
+                    <!-- Step 5 -->
+                    <fieldset class="step" data-step="5">
+                        <h2 class="step__title">What is your name?</h2>
+                        <div class="field-row">
+                            <div class="field">
+                                <label class="field-label" for="first_name">First name</label>
+                                <input type="text" id="first_name" name="first_name" autocomplete="given-name" data-required>
+                            </div>
+                            <div class="field">
+                                <label class="field-label" for="last_name">Last name</label>
+                                <input type="text" id="last_name" name="last_name" autocomplete="family-name" data-required>
+                            </div>
+                        </div>
+                        <label class="consent">
+                            <input type="checkbox" name="credit_consent" value="1" data-required>
+                            <span>I authorize <?= e(SITE_NAME) ?> and its partners to obtain my credit profile to determine the debt relief options I may qualify for.</span>
+                        </label>
+                        <p class="error-msg" data-error>Please enter your name and provide authorization.</p>
+                    </fieldset>
+
+                    <!-- Step 6 -->
+                    <fieldset class="step" data-step="6">
+                        <h2 class="step__title">Where should we send your results?</h2>
+                        <div class="field">
+                            <label class="field-label" for="email">Email address</label>
+                            <input type="email" id="email" name="email" autocomplete="email" data-required data-pattern="^[^@\s]+@[^@\s]+\.[^@\s]+$" data-error-text="Enter a valid email address.">
+                            <p class="error-msg" data-error>Please enter a valid email address.</p>
+                        </div>
+                    </fieldset>
+
+                    <!-- Step 7 -->
+                    <fieldset class="step" data-step="7">
+                        <h2 class="step__title">Verify your phone number</h2>
+                        <div class="field">
+                            <label class="field-label" for="phone">Phone number</label>
+                            <input type="tel" id="phone" name="phone" autocomplete="tel" data-required data-pattern="^[\d\s().+-]{10,}$" data-error-text="Enter a valid phone number." placeholder="(555) 555-1234">
+                        </div>
+                        <div class="field">
+                            <button type="button" class="btn btn--light" id="send-code">Send Verification Code</button>
+                        </div>
+                        <div class="field" id="code-field" hidden>
+                            <label class="field-label" for="verify_code">Verification code</label>
+                            <input type="text" id="verify_code" name="verify_code" inputmode="numeric" placeholder="6-digit code">
+                            <p class="step__sub" id="code-note" style="margin:6px 0 0;"></p>
+                        </div>
+                        <label class="consent">
+                            <input type="checkbox" name="contact_consent" value="1" data-required>
+                            <span>By checking this box, I agree to be contacted by <?= e(SITE_NAME) ?> and its partners at the number provided, including by automated dialing and prerecorded messages, even if my number is on a Do Not Call list. Consent is not a condition of purchase. Message and data rates may apply.</span>
+                        </label>
+                        <p class="error-msg" data-error>Please verify your phone number and provide consent.</p>
+                    </fieldset>
+                </div>
+
+                <!-- Persistent benefits -->
+                <ul class="benefits">
+                    <li><span class="check" aria-hidden="true">✔</span> Reduce monthly payments by up to 50%</li>
+                    <li><span class="check" aria-hidden="true">✔</span> Combine balances into one affordable payment</li>
+                    <li><span class="check" aria-hidden="true">✔</span> Solutions tailored to your financial situation</li>
+                </ul>
+
+                <!-- Persistent action bar (labels/visibility controlled by JS) -->
+                <div class="actions">
+                    <button type="button" class="btn btn--back" id="btn-back" hidden>Back</button>
+                    <button type="button" class="btn btn--primary" id="btn-primary">Continue</button>
+                </div>
+            </form>
+        </div>
+
+        <p class="secure-note">🔒 Your information is encrypted and secure.</p>
+    </div>
+</section>
+
+<!-- Social proof -->
+<section class="trust">
+    <div class="container">
+        <h2 class="trust__title">Trusted by Thousands of Americans</h2>
+        <div class="trust__badges">
+            <div class="badge">
+                <span class="badge__source">
+                    <img src="assets/img/google-logo.webp">
+                </span>
+                <span class="badge__score">4.9</span>
+                <span class="badge__stars" aria-hidden="true">★★★★★</span>
+                <span class="badge__count">Based on 1,842 Reviews</span>
+            </div>
+            <div class="badge">
+                <img src="assets/img/yelp-logo.webp">
+                <span class="badge__score">4.8</span>
+                <span class="badge__stars" aria-hidden="true">★★★★★</span>
+                <span class="badge__count">Based on 342 Reviews</span>
+            </div>
+        </div>
+    </div>
+</section>
+<?php require __DIR__ . '/includes/footer.php'; ?>
