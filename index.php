@@ -100,11 +100,26 @@ $token = csrf_token();
                                 <input type="text" id="last_name" name="last_name" autocomplete="family-name" data-required>
                             </div>
                         </div>
-                        <label class="consent">
-                            <input type="checkbox" name="credit_consent" value="1" data-required>
-                            <span>I authorize <?= e(SITE_NAME) ?> and its partners to obtain my credit profile to determine the debt relief options I may qualify for.</span>
-                        </label>
-                        <p class="error-msg" data-error>Please enter your name and provide authorization.</p>
+                        <div class="disclosure" data-disclosure>
+                            <div class="disclosure__scroll" data-disclosure-scroll tabindex="0" role="region" aria-label="Credit profile authorization">
+                                <p>
+                                    By clicking on the &lsquo;Next&rsquo; button below, you agree to the terms and
+                                    conditions, acknowledge receipt of our privacy policy and agree to its terms, and
+                                    confirm your authorization for <?= e(SITE_NAME) ?> to obtain your credit profile
+                                    from any consumer reporting agency to display to you, to confirm your identity, and
+                                    to avoid fraudulent transactions in your name.
+                                </p>
+                                <p>
+                                    You understand that by proceeding, you are providing &lsquo;written instructions&rsquo;
+                                    under the FCRA authorizing us to obtain information from your personal credit profile
+                                    from each credit reporting agency. You authorize us to obtain such information solely
+                                    to confirm your identity and display your credit data to you.
+                                </p>
+                            </div>
+                            <p class="disclosure__hint" data-disclosure-hint>Please scroll down and read the full authorization to continue.</p>
+                        </div>
+                        <input type="hidden" name="credit_consent" id="credit_consent" data-required>
+                        <p class="error-msg" data-error>Please enter your name and read the authorization to continue.</p>
                     </fieldset>
 
                     <!-- Step 6 -->

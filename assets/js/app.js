@@ -31,7 +31,40 @@
 
         var firstField = steps[current].querySelector('input, select');
         if (firstField) { try { firstField.focus(); } catch (e) {} }
+
+        // If a step gates the Next button behind a disclosure that fits without
+        // scrolling, it's already fully visible — mark it read. Then sync the button.
+        var box = steps[current].querySelector('[data-disclosure-scroll]');
+        if (box && box.scrollHeight <= box.clientHeight + 4) { markRead(box); }
+        applyGate();
     }
+
+    // --- Disclosure gate: Next stays disabled until the text is read in full ---
+    function isGateSatisfied(step) {
+        var gate = step.querySelector('[data-disclosure]');
+        return !gate || gate.classList.contains('is-read');
+    }
+
+    function applyGate() {
+        primaryBtn.disabled = !isGateSatisfied(steps[current]);
+    }
+
+    function markRead(box) {
+        var gate = box.closest('[data-disclosure]');
+        if (!gate || gate.classList.contains('is-read')) return;
+        gate.classList.add('is-read');
+        var hint = gate.querySelector('[data-disclosure-hint]');
+        if (hint) hint.hidden = true;
+        var consent = gate.parentNode.querySelector('#credit_consent');
+        if (consent) consent.value = '1';
+        applyGate();
+    }
+
+    form.querySelectorAll('[data-disclosure-scroll]').forEach(function (box) {
+        box.addEventListener('scroll', function () {
+            if (box.scrollTop + box.clientHeight >= box.scrollHeight - 4) { markRead(box); }
+        });
+    });
 
     // Selectable choice buttons: set hidden input, highlight, and advance
     form.addEventListener('click', function (ev) {

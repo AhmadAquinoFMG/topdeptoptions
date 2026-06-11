@@ -29,7 +29,7 @@ $data = [
     'last_name'      => field('last_name'),
     'email'          => field('email'),
     'phone'          => field('phone'),
-    'credit_consent' => isset($_POST['credit_consent']),
+    'credit_consent' => (($_POST['credit_consent'] ?? '') === '1'),
     'contact_consent'=> isset($_POST['contact_consent']),
 ];
 
