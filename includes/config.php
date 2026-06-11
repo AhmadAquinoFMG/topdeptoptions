@@ -40,7 +40,10 @@ function load_env(string $dir): void
             }
             if ($name !== '') {
                 $_ENV[$name] = $value;
-                putenv($name . '=' . $value);
+                // Some managed hosts disable putenv() via disable_functions; $_ENV is enough.
+                if (function_exists('putenv')) {
+                    putenv($name . '=' . $value);
+                }
             }
         }
     }
@@ -51,7 +54,7 @@ function load_env(string $dir): void
  */
 function env(string $key, ?string $default = null): ?string
 {
-    $value = $_ENV[$key] ?? getenv($key);
+    $value = $_ENV[$key] ?? ($_SERVER[$key] ?? (function_exists('getenv') ? getenv($key) : false));
     return ($value === false || $value === null || $value === '') ? $default : $value;
 }
 
