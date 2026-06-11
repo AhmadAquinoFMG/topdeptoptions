@@ -290,6 +290,10 @@ width: 100% }
 .actions { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
 .actions .btn { flex: 1 1 0; min-width: 0; width: auto; }
 
+.code-row { display: flex; gap: 10px; align-items: stretch; }
+.code-row input { flex: 1 1 auto; }
+.code-row .btn { flex: 0 0 auto; width: auto; }
+
 .secure-note { text-align: center; color: var(--muted); font-size: 0.82rem; margin-top: 20px; }
 
 /* ---------- Trust / reviews ---------- */

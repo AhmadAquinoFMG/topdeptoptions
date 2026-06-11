@@ -142,11 +142,19 @@ $token = csrf_token();
                         <div class="field">
                             <button type="button" class="btn btn--light" id="send-code">Send Verification Code</button>
                         </div>
+                        <!-- Invisible reCAPTCHA mount point for Firebase Phone Auth -->
+                        <div id="recaptcha-container"></div>
                         <div class="field" id="code-field" hidden>
                             <label class="field-label" for="verify_code">Verification code</label>
-                            <input type="text" id="verify_code" name="verify_code" inputmode="numeric" placeholder="6-digit code">
+                            <div class="code-row">
+                                <input type="text" id="verify_code" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code">
+                                <button type="button" class="btn btn--light" id="verify-code">Verify</button>
+                            </div>
                             <p class="step__sub" id="code-note" style="margin:6px 0 0;"></p>
                         </div>
+                        <!-- Set by the phone-auth flow once verification succeeds -->
+                        <input type="hidden" name="phone_verified" id="phone_verified" data-required>
+                        <input type="hidden" name="firebase_token" id="firebase_token">
                         <label class="consent">
                             <input type="checkbox" name="contact_consent" value="1" data-required>
                             <span>By checking this box, I agree to be contacted by <?= e(SITE_NAME) ?> and its partners at the number provided, including by automated dialing and prerecorded messages, even if my number is on a Do Not Call list. Consent is not a condition of purchase. Message and data rates may apply.</span>

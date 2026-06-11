@@ -154,20 +154,119 @@
         if (current > 0) { current--; render(); }
     });
 
-    // Simulated phone verification code
-    var sendBtn = document.getElementById('send-code');
-    if (sendBtn) {
+    // --- Phone verification via Firebase Phone Auth (invisible reCAPTCHA) ---
+    (function initPhoneAuth() {
+        var sendBtn = document.getElementById('send-code');
+        if (!sendBtn) return;
+
+        var phoneInput = document.getElementById('phone');
+        var codeField = document.getElementById('code-field');
+        var codeInput = document.getElementById('verify_code');
+        var verifyBtn = document.getElementById('verify-code');
+        var note = document.getElementById('code-note');
+        var verifiedFlag = document.getElementById('phone_verified');
+        var tokenField = document.getElementById('firebase_token');
+
+        var cfg = (window.APP_CONFIG && window.APP_CONFIG.firebase) || {};
+        var firebaseReady = !!(cfg.apiKey && window.firebase);
+        var confirmationResult = null;
+        var recaptcha = null;
+
+        function setNote(msg, ok) {
+            note.textContent = msg;
+            note.style.color = ok ? 'var(--green)' : 'var(--muted)';
+        }
+
+        // Normalise a US number to E.164 (+1XXXXXXXXXX); pass through other intl forms.
+        function toE164(raw) {
+            var trimmed = (raw || '').trim();
+            var digits = trimmed.replace(/\D/g, '');
+            if (trimmed.charAt(0) === '+') return '+' + digits;
+            if (digits.length === 11 && digits.charAt(0) === '1') return '+' + digits;
+            if (digits.length === 10) return '+1' + digits;
+            return digits ? '+' + digits : '';
+        }
+
+        function markVerified(token) {
+            verifiedFlag.value = '1';
+            tokenField.value = token || '';
+            codeInput.disabled = true;
+            verifyBtn.disabled = true;
+            sendBtn.disabled = true;
+            setNote('✓ Phone number verified.', true);
+        }
+
+        if (firebaseReady && !firebase.apps.length) {
+            firebase.initializeApp({
+                apiKey: cfg.apiKey,
+                authDomain: cfg.authDomain,
+                projectId: cfg.projectId,
+                appId: cfg.appId,
+                messagingSenderId: cfg.messagingSenderId
+            });
+        }
+
+        function getRecaptcha() {
+            // Created lazily on first send, when step 7 is visible.
+            if (!recaptcha) {
+                recaptcha = new firebase.auth.RecaptchaVerifier('recaptcha-container', { size: 'invisible' });
+            }
+            return recaptcha;
+        }
+
         sendBtn.addEventListener('click', function () {
-            var phone = document.getElementById('phone');
-            if (!phone.value.trim()) {
-                showError(steps[current], 'Enter your phone number first.');
+            var phone = (phoneInput.value || '').trim();
+            if (!phone) { showError(steps[current], 'Enter your phone number first.'); return; }
+
+            if (!firebaseReady) {
+                // Dev fallback when Firebase isn't configured: no SMS, stub verification.
+                codeField.hidden = false;
+                setNote('Verification is not configured. Enter any 6-digit code to continue.');
+                sendBtn.textContent = 'Resend Code';
+                codeInput.focus();
                 return;
             }
-            document.getElementById('code-field').hidden = false;
-            document.getElementById('code-note').textContent = 'A verification code has been sent to your phone.';
-            sendBtn.textContent = 'Resend Code';
+
+            var e164 = toE164(phone);
+            sendBtn.disabled = true;
+            setNote('Sending verification code…');
+            firebase.auth().signInWithPhoneNumber(e164, getRecaptcha())
+                .then(function (result) {
+                    confirmationResult = result;
+                    codeField.hidden = false;
+                    setNote('A 6-digit code was sent to ' + e164 + '.');
+                    sendBtn.textContent = 'Resend Code';
+                    sendBtn.disabled = false;
+                    codeInput.focus();
+                })
+                .catch(function (err) {
+                    sendBtn.disabled = false;
+                    setNote('Could not send code: ' + ((err && err.message) || 'please try again.'));
+                    if (recaptcha && recaptcha.clear) { try { recaptcha.clear(); } catch (e) {} recaptcha = null; }
+                });
         });
-    }
+
+        verifyBtn.addEventListener('click', function () {
+            var code = (codeInput.value || '').trim();
+            if (!/^\d{4,8}$/.test(code)) { setNote('Enter the code you received.'); return; }
+
+            if (!firebaseReady) {
+                markVerified(''); // dev fallback
+                return;
+            }
+            if (!confirmationResult) { setNote('Please request a code first.'); return; }
+
+            verifyBtn.disabled = true;
+            setNote('Verifying…');
+            confirmationResult.confirm(code)
+                .then(function (cred) { return cred.user.getIdToken(); })
+                .then(function (token) { markVerified(token); })
+                .catch(function () {
+                    verifyBtn.disabled = false;
+                    setNote('Invalid or expired code. Please try again.');
+                });
+        });
+    })();
 
     // --- Date of birth: Flatpickr calendar (keeps Y-m-d in the real field) ---
     function initDobPicker() {

@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/includes/config.php';
+require __DIR__ . '/includes/firebase.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: /');
@@ -31,6 +32,7 @@ $data = [
     'phone'          => field('phone'),
     'credit_consent' => (($_POST['credit_consent'] ?? '') === '1'),
     'contact_consent'=> isset($_POST['contact_consent']),
+    'phone_verified' => false,
 ];
 
 // --- Server-side validation ---
@@ -70,6 +72,26 @@ if (!preg_match('/^[\d\s().+-]{10,}$/', $data['phone'])) {
 }
 if (!$data['contact_consent']) {
     $errors[] = 'Contact consent is required to submit.';
+}
+
+// --- Phone verification ---
+if (FIREBASE_PROJECT_ID !== '') {
+    // Production: cryptographically verify the Firebase ID token.
+    $claims = firebase_verify_id_token($_POST['firebase_token'] ?? '', FIREBASE_PROJECT_ID);
+    if (!$claims) {
+        $errors[] = 'Please verify your phone number to continue.';
+    } else {
+        $data['phone_verified'] = true;
+        if (!empty($claims['phone_number'])) {
+            $data['verified_phone'] = $claims['phone_number'];
+        }
+    }
+} else {
+    // Dev (Firebase not configured): trust the client flag.
+    $data['phone_verified'] = (($_POST['phone_verified'] ?? '') === '1');
+    if (!$data['phone_verified']) {
+        $errors[] = 'Please verify your phone number to continue.';
+    }
 }
 
 // --- Persist the lead on success ---

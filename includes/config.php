@@ -64,6 +64,15 @@ load_env(dirname(__DIR__));
 // Set GOOGLE_MAPS_API_KEY in .env or .env.local. Empty disables autocomplete (field still works).
 define('GOOGLE_MAPS_API_KEY', (string) env('GOOGLE_MAPS_API_KEY', ''));
 
+// Firebase web config for phone-number verification (Phone Auth).
+// Set these in .env / .env.local. If FIREBASE_PROJECT_ID is empty, server-side
+// verification is skipped (dev), and the client falls back to a no-SMS stub.
+define('FIREBASE_API_KEY', (string) env('FIREBASE_API_KEY', ''));
+define('FIREBASE_AUTH_DOMAIN', (string) env('FIREBASE_AUTH_DOMAIN', ''));
+define('FIREBASE_PROJECT_ID', (string) env('FIREBASE_PROJECT_ID', ''));
+define('FIREBASE_APP_ID', (string) env('FIREBASE_APP_ID', ''));
+define('FIREBASE_MESSAGING_SENDER_ID', (string) env('FIREBASE_MESSAGING_SENDER_ID', ''));
+
 /**
  * Escape a string for safe HTML output.
  */
