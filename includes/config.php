@@ -14,6 +14,54 @@ const SITE_TAGLINE = 'See If You Qualify For Debt Relief';
 const CONTACT_EMAIL = 'support@topdebtoptions.com';
 
 /**
+ * Load environment variables from .env then .env.local (local overrides base).
+ * Lightweight, no external dependency.
+ */
+function load_env(string $dir): void
+{
+    foreach (['.env', '.env.local'] as $file) {
+        $path = $dir . DIRECTORY_SEPARATOR . $file;
+        if (!is_file($path) || !is_readable($path)) {
+            continue;
+        }
+        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) {
+                continue;
+            }
+            [$name, $value] = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value);
+            // Strip matching surrounding quotes, if present.
+            if (strlen($value) >= 2
+                && ($value[0] === '"' || $value[0] === "'")
+                && $value[strlen($value) - 1] === $value[0]) {
+                $value = substr($value, 1, -1);
+            }
+            if ($name !== '') {
+                $_ENV[$name] = $value;
+                putenv($name . '=' . $value);
+            }
+        }
+    }
+}
+
+/**
+ * Read an environment variable, with an optional default.
+ */
+function env(string $key, ?string $default = null): ?string
+{
+    $value = $_ENV[$key] ?? getenv($key);
+    return ($value === false || $value === null || $value === '') ? $default : $value;
+}
+
+load_env(dirname(__DIR__));
+
+// Google Maps JavaScript API key (Places library enabled) for address autocomplete.
+// Set GOOGLE_MAPS_API_KEY in .env or .env.local. Empty disables autocomplete (field still works).
+define('GOOGLE_MAPS_API_KEY', (string) env('GOOGLE_MAPS_API_KEY', ''));
+
+/**
  * Escape a string for safe HTML output.
  */
 function e(?string $value): string

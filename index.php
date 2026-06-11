@@ -47,10 +47,11 @@ $token = csrf_token();
                     <!-- Step 2 -->
                     <fieldset class="step" data-step="2">
                         <h2 class="step__title">Are you behind on any payments?</h2>
-                        <div class="options" data-radio-group>
-                            <label class="option"><input type="radio" name="payment_status" value="over_60" data-required> Yes, over 60 days behind</label>
-                            <label class="option"><input type="radio" name="payment_status" value="over_30"> Yes, over 30 days behind</label>
-                            <label class="option"><input type="radio" name="payment_status" value="not_behind"> No, I'm not behind</label>
+                        <input type="hidden" name="payment_status" id="payment_status" data-required>
+                        <div class="options" data-choice-group data-choice-for="payment_status">
+                            <button type="button" class="option option--choice text-center" data-value="over_60">Yes, over 60 days behind</button>
+                            <button type="button" class="option option--choice text-center" data-value="over_30">Yes, over 30 days behind</button>
+                            <button type="button" class="option option--choice text-center" data-value="not_behind">No, I'm not behind</button>
                         </div>
                         <p class="error-msg" data-error>Please choose an option.</p>
                     </fieldset>
@@ -60,7 +61,7 @@ $token = csrf_token();
                         <h2 class="step__title">What is your address?</h2>
                         <div class="field">
                             <label class="field-label" for="address">Street address</label>
-                            <input type="text" id="address" name="address" autocomplete="street-address" data-required placeholder="123 Main St">
+                            <input type="text" id="address" name="address" autocomplete="off" data-required data-address-autocomplete placeholder="Start typing your address…">
                         </div>
                         <div class="field-row">
                             <div class="field">
@@ -81,7 +82,7 @@ $token = csrf_token();
                         <p class="step__sub">You must be at least 18 years old to qualify.</p>
                         <div class="field">
                             <label class="field-label" for="dob">Date of birth</label>
-                            <input type="date" id="dob" name="dob" data-required data-adult>
+                            <input type="text" id="dob" name="dob" data-required data-adult autocomplete="bday" placeholder="Select your date of birth">
                             <p class="error-msg" data-error>Please enter a valid date of birth (18+).</p>
                         </div>
                     </fieldset>

@@ -33,16 +33,18 @@
         if (firstField) { try { firstField.focus(); } catch (e) {} }
     }
 
-    // Highlight selected radio options
-    form.addEventListener('change', function (ev) {
-        if (ev.target.type === 'radio') {
-            var group = ev.target.closest('[data-radio-group]');
-            if (group) {
-                group.querySelectorAll('.option').forEach(function (opt) {
-                    opt.classList.toggle('is-selected', opt.querySelector('input').checked);
-                });
-            }
-        }
+    // Selectable choice buttons: set hidden input, highlight, and advance
+    form.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('[data-choice-group] .option--choice');
+        if (!btn) return;
+        var group = btn.closest('[data-choice-group]');
+        var input = document.getElementById(group.getAttribute('data-choice-for'));
+        if (input) input.value = btn.getAttribute('data-value');
+        group.querySelectorAll('.option--choice').forEach(function (opt) {
+            opt.classList.toggle('is-selected', opt === btn);
+        });
+        clearErrors(steps[current]);
+        if (current < total - 1) { current++; render(); }
     });
 
     function clearErrors(step) {
@@ -133,6 +135,86 @@
             sendBtn.textContent = 'Resend Code';
         });
     }
+
+    // --- Date of birth: Flatpickr calendar (keeps Y-m-d in the real field) ---
+    function initDobPicker() {
+        var dob = document.getElementById('dob');
+        if (!dob || typeof flatpickr === 'undefined') return;
+        var max = new Date();
+        max.setFullYear(max.getFullYear() - 18);
+        flatpickr(dob, {
+            dateFormat: 'Y-m-d',       // value submitted to the server
+            altInput: true,            // friendly display, hidden real field
+            altFormat: 'F j, Y',
+            maxDate: max,              // cannot pick a date younger than 18
+            allowInput: true,
+            disableMobile: true        // use Flatpickr UI on mobile too
+        });
+    }
+
+    // --- Address: Google Places Autocomplete ---
+    function fillComponent(components, type, useShort) {
+        for (var i = 0; i < components.length; i++) {
+            if (components[i].types.indexOf(type) !== -1) {
+                return useShort ? components[i].short_name : components[i].long_name;
+            }
+        }
+        return '';
+    }
+
+    function initAddressAutocomplete() {
+        var addr = document.querySelector('[data-address-autocomplete]');
+        if (!addr || !window.google || !google.maps || !google.maps.places) return;
+
+        var ac = new google.maps.places.Autocomplete(addr, {
+            types: ['address'],
+            componentRestrictions: { country: ['us'] },
+            fields: ['address_components']
+        });
+
+        ac.addListener('place_changed', function () {
+            var place = ac.getPlace();
+            var c = place && place.address_components;
+            if (!c) return;
+
+            var streetNumber = fillComponent(c, 'street_number');
+            var route = fillComponent(c, 'route');
+            addr.value = (streetNumber + ' ' + route).trim();
+
+            var city = document.getElementById('city');
+            var zip = document.getElementById('zip');
+            if (city) city.value = fillComponent(c, 'locality') ||
+                fillComponent(c, 'sublocality') || fillComponent(c, 'postal_town');
+            if (zip) zip.value = fillComponent(c, 'postal_code');
+
+            clearErrors(steps[current]);
+        });
+
+        // Prevent the Enter-to-advance handler from firing while a suggestion is open
+        addr.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter' && document.querySelector('.pac-container:not([style*="display: none"])')) {
+                ev.stopPropagation();
+            }
+        });
+    }
+
+    function loadGoogleMaps() {
+        var key = (window.APP_CONFIG && window.APP_CONFIG.gmapsKey) || '';
+        if (!key) return; // no key configured — field stays a plain input
+        if (window.google && window.google.maps && window.google.maps.places) {
+            initAddressAutocomplete();
+            return;
+        }
+        window.__initGmaps = initAddressAutocomplete;
+        var s = document.createElement('script');
+        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) +
+            '&libraries=places&callback=__initGmaps&loading=async';
+        s.async = true;
+        document.head.appendChild(s);
+    }
+
+    initDobPicker();
+    loadGoogleMaps();
 
     // Enter key advances instead of submitting mid-flow
     form.addEventListener('keydown', function (ev) {

@@ -1,0 +1,7 @@
+# Environment files (may contain secrets) — keep .env.example tracked
+.env
+.env.local
+.env.*.local
+
+# Submitted lead storage
+/storage/*.json

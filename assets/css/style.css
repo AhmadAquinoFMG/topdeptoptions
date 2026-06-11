@@ -39,6 +39,10 @@ a { color: var(--blue); }
 }
 .skip-link:focus { left: 12px; top: 12px; }
 
+.text-center{
+    text-align: center !important;
+}
+
 /* ---------- Header ---------- */
 .logo{
     width: 200px;
@@ -169,6 +173,17 @@ input:focus, select:focus {
     box-shadow: 0 0 0 3px rgba(47, 143, 222, 0.18);
 }
 
+/* Google Places autocomplete dropdown */
+.pac-container {
+    z-index: 100000;
+    border-radius: 10px;
+    margin-top: 4px;
+    font-family: inherit;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--line);
+}
+.pac-item { padding: 8px 12px; cursor: pointer; }
+
 /* radio options */
 .options { display: grid; gap: 12px; }
 .option {
@@ -176,14 +191,29 @@ input:focus, select:focus {
     padding: 16px;
     border: 1.5px solid var(--line);
     border-radius: 10px;
-    background: #fff;
+    background: #2f95da;
     cursor: pointer;
     font-weight: 500;
     transition: border-color 0.15s, background 0.15s;
+    color: white;
+    text-align: center !important;
+    display: flex;
+    justify-content: center;
+
 }
+
+.option--choice{
+    text-align: center !important;
+}
+
 .option:hover { border-color: var(--blue); }
 .option input { accent-color: var(--blue); width: 18px; height: 18px; }
 .option.is-selected { border-color: var(--blue); background: rgba(47, 143, 222, 0.07); }
+.option--choice {
+    width: 100%; text-align: center;
+    font-family: inherit; font-size: 1rem; color: white;
+     text-align: center !important;
+}
 
 .consent {
     display: flex; gap: 10px; align-items: flex-start;
@@ -211,7 +241,7 @@ input:focus, select:focus {
 /* buttons */
 .btn {
     display: inline-flex; align-items: center; justify-content: center;
-    gap: 8px; width: 100%;
+    gap: 8px; 
     padding: 16px 20px;
     border: none; border-radius: 9px;
     font-size: 1.05rem; font-weight: 700; font-family: inherit;
@@ -219,11 +249,12 @@ input:focus, select:focus {
 }
 .btn:active { transform: translateY(1px); }
 .btn[hidden] { display: none; }
-.btn--primary { background: var(--blue); color: #fff; }
+.btn--primary { background: var(--blue); color: #fff;
+width: 100% }
 .btn--primary:hover { background: var(--blue-dark); }
 .btn--back {
     background: transparent; color: var(--muted);
-    width: auto; padding: 16px 8px; font-weight: 600;
+     padding: 16px 8px; font-weight: 600;
 }
 .btn--back:hover { color: var(--ink); }
 .btn--light {
@@ -233,8 +264,7 @@ input:focus, select:focus {
 .btn--light:hover { background: rgba(47,143,222,0.06); }
 
 .actions { display: flex; align-items: center; gap: 10px; margin-top: 22px; }
-.actions .btn--primary { flex: 1; }
-.actions .btn--back { flex: 0 0 auto; }
+.actions .btn { flex: 1 1 0; min-width: 0; width: auto; }
 
 .secure-note { text-align: center; color: var(--muted); font-size: 0.82rem; margin-top: 20px; }
 

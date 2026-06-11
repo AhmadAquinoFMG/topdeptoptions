@@ -41,6 +41,8 @@
             <p class="footer-copy">&copy; <?= date('Y') ?> <?= e(SITE_NAME) ?>. All rights reserved.</p>
         </div>
     </footer>
+    <script>window.APP_CONFIG = { gmapsKey: '<?= e(GOOGLE_MAPS_API_KEY) ?>' };</script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="/assets/js/app.js" defer></script>
     </body>
 
