@@ -3,5 +3,6 @@
 .env.local
 .env.*.local
 
-# Submitted lead storage
-/storage/*.json
+# Submitted lead storage (contains PII) — keep the dir, ignore the data
+/storage/*
+!/storage/.gitkeep

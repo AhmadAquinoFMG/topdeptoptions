@@ -16,6 +16,15 @@ $token = csrf_token();
 
             <form id="qualify-form" action="/submit.php" method="post" novalidate>
                 <input type="hidden" name="csrf" value="<?= e($token) ?>">
+                <!-- Lead-certification tokens, populated client-side before submit. -->
+                <input type="hidden" name="xxTrustedFormCertUrl" id="xxTrustedFormCertUrl">
+                <input type="hidden" name="xxTrustedFormPingUrl" id="xxTrustedFormPingUrl">
+                <input type="hidden" name="xxTrustedFormToken" id="xxTrustedFormToken">
+                <input type="hidden" name="universal_leadid" id="leadid_token" value="">
+                <!-- Tracking: IP set client-side; affid/ef_tid prefilled from first-touch attribution. -->
+                <input type="hidden" name="hid_ip_address" id="hid_ip_address">
+                <input type="hidden" name="hid_affid" id="hid_affid" value="<?= e($_SESSION['tracking']['affid'] ?? '') ?>">
+                <input type="hidden" name="hid_ef_tid" id="hid_ef_tid" value="<?= e($_SESSION['tracking']['ef_transaction_id'] ?? '') ?>">
 
                 <div class="steps">
                     <!-- Step 1 -->
@@ -63,10 +72,19 @@ $token = csrf_token();
                             <label class="field-label" for="address">Street address</label>
                             <input type="text" id="address" name="address" autocomplete="off" data-required data-address-autocomplete placeholder="Start typing your address…">
                         </div>
-                        <div class="field-row">
+                        <div class="field-row field-row--csz">
                             <div class="field">
                                 <label class="field-label" for="city">City</label>
                                 <input type="text" id="city" name="city" autocomplete="address-level2" data-required>
+                            </div>
+                            <div class="field field--state">
+                                <label class="field-label" for="state">State</label>
+                                <select id="state" name="state" autocomplete="address-level1" data-required>
+                                    <option value="">State…</option>
+                                    <?php foreach (US_STATES as $abbr => $name): ?>
+                                        <option value="<?= e($abbr) ?>"><?= e($abbr) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                             <div class="field">
                                 <label class="field-label" for="zip">ZIP code</label>
@@ -204,4 +222,5 @@ $token = csrf_token();
         </div>
     </div>
 </section>
+<?php // TrustedForm + Jornaya are injected client-side by loadCompliance() in app.js. ?>
 <?php require __DIR__ . '/includes/footer.php'; ?>

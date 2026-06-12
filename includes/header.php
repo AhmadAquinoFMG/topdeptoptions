@@ -13,6 +13,10 @@ $pageTitle = $pageTitle ?? SITE_NAME;
     <title><?= e($pageTitle) ?></title>
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/cropped-favicon-cmd-32x32.png">
     <link rel="shortcut icon" href="/assets/img/cropped-favicon-cmd-32x32.png">
+<?php if (TRUSTEDFORM_ENABLED): ?>
+    <link rel="dns-prefetch" href="https://cdn.trustedform.com">
+    <link rel="preconnect" href="https://api.trustedform.com" crossorigin>
+<?php endif; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

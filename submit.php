@@ -1,6 +1,7 @@
 <?php
 require __DIR__ . '/includes/config.php';
 require __DIR__ . '/includes/firebase.php';
+require __DIR__ . '/includes/leadprosper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: /');
@@ -19,11 +20,31 @@ function field(string $key): string
     return trim((string)($_POST[$key] ?? ''));
 }
 
+/**
+ * Resolve the real client IP. Behind Varnish/Cloudways, REMOTE_ADDR is the proxy,
+ * so prefer the client-fetched public IP, then X-Forwarded-For, then REMOTE_ADDR.
+ */
+function client_ip(): string
+{
+    $candidates = [field('hid_ip_address')];
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $candidates[] = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+    }
+    $candidates[] = $_SERVER['REMOTE_ADDR'] ?? '';
+    foreach ($candidates as $ip) {
+        if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
+            return $ip;
+        }
+    }
+    return $_SERVER['REMOTE_ADDR'] ?? '';
+}
+
 $data = [
     'debt_amount'    => field('debt_amount'),
     'payment_status' => field('payment_status'),
     'address'        => field('address'),
     'city'           => field('city'),
+    'state'          => strtoupper(field('state')),
     'zip'            => field('zip'),
     'dob'            => field('dob'),
     'first_name'     => field('first_name'),
@@ -33,6 +54,11 @@ $data = [
     'credit_consent' => (($_POST['credit_consent'] ?? '') === '1'),
     'contact_consent'=> isset($_POST['contact_consent']),
     'phone_verified' => false,
+    // Lead-certification tokens injected client-side by TrustedForm / Jornaya.
+    'trustedform_cert_url' => field('xxTrustedFormCertUrl'),
+    'jornaya_leadid'       => field('universal_leadid'),
+    'tcpa_text'            => TCPA_TEXT,
+    'user_agent'           => substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500),
 ];
 
 // --- Server-side validation ---
@@ -45,6 +71,9 @@ if (!in_array($data['payment_status'], ['over_60','over_30','not_behind'], true)
 }
 if ($data['address'] === '' || $data['city'] === '') {
     $errors[] = 'Please provide your full address.';
+}
+if (!isset(US_STATES[$data['state']])) {
+    $errors[] = 'Please select your state.';
 }
 if (!preg_match('/^\d{5}$/', $data['zip'])) {
     $errors[] = 'Please provide a valid 5-digit ZIP code.';
@@ -94,60 +123,66 @@ if (FIREBASE_PROJECT_ID !== '') {
     }
 }
 
-// --- Persist the lead on success ---
+// --- Forward + persist the lead on success ---
 if (!$errors) {
+    $data['ip'] = client_ip();
+    $tracking = $_SESSION['tracking'] ?? [];
+    // Backfill attribution from the posted hidden fields if the session was lost.
+    if (empty($tracking['affid']) && field('hid_affid') !== '') {
+        $tracking['affid'] = field('hid_affid');
+    }
+    if (empty($tracking['ef_transaction_id']) && field('hid_ef_tid') !== '') {
+        $tracking['ef_transaction_id'] = field('hid_ef_tid');
+    }
+
+    // Post to LeadProsper. This never throws and must never block the user — a
+    // rejection or outage is logged with the lead, but they still see thank-you.
+    $lp = leadprosper_submit($data, $tracking);
+
     $storeDir = __DIR__ . '/storage';
     if (!is_dir($storeDir)) {
         @mkdir($storeDir, 0775, true);
     }
     $record = $data;
     $record['submitted_at'] = date('c');
-    $record['ip'] = $_SERVER['REMOTE_ADDR'] ?? '';
+    $record['tracking'] = $tracking;
+    $record['leadprosper'] = $lp;
     @file_put_contents(
         $storeDir . '/leads.jsonl',
         json_encode($record, JSON_UNESCAPED_SLASHES) . PHP_EOL,
         FILE_APPEND | LOCK_EX
     );
-    // Rotate CSRF token to prevent resubmission.
-    unset($_SESSION['csrf']);
+    // Stash a one-time flash for the thank-you page, then redirect (PRG pattern).
+    $_SESSION['lead_success'] = [
+        'first_name'  => $data['first_name'],
+        'email'       => $data['email'],
+        'phone'       => $data['phone'],
+        'debt_amount' => $data['debt_amount'],
+    ];
+    // Rotate CSRF token to prevent resubmission; clear attribution for the next lead.
+    unset($_SESSION['csrf'], $_SESSION['tracking']);
+    header('Location: /thank-you.php');
+    exit;
 }
 
-$pageTitle = $errors
-    ? 'There was a problem — ' . SITE_NAME
-    : 'You\'re all set — ' . SITE_NAME;
+$pageTitle = 'There was a problem — ' . SITE_NAME;
 require __DIR__ . '/includes/header.php';
 ?>
 <section class="funnel">
     <div class="container">
         <div class="card">
-            <?php if ($errors): ?>
-                <div class="result">
-                    <div class="result__icon result__icon--err">!</div>
-                    <h2 class="step__title">We couldn't process your request</h2>
-                    <ul style="text-align:left;color:#36434f;">
-                        <?php foreach ($errors as $err): ?>
-                            <li><?= e($err) ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                    <div class="actions">
-                        <a class="btn btn--primary" href="/">Start over</a>
-                    </div>
+            <div class="result">
+                <div class="result__icon result__icon--err">!</div>
+                <h2 class="step__title">We couldn't process your request</h2>
+                <ul style="text-align:left;color:#36434f;">
+                    <?php foreach ($errors as $err): ?>
+                        <li><?= e($err) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+                <div class="actions">
+                    <a class="btn btn--primary" href="/">Start over</a>
                 </div>
-            <?php else: ?>
-                <div class="result">
-                    <div class="result__icon">✓</div>
-                    <h2 class="step__title">Thank you, <?= e($data['first_name']) ?>!</h2>
-                    <p class="step__sub" style="margin-top:0;">
-                        Your request has been received. One of our debt relief partners will
-                        review your information and reach out to <strong><?= e($data['email']) ?></strong>
-                        or <strong><?= e($data['phone']) ?></strong> with the options you may qualify for.
-                    </p>
-                    <div class="actions">
-                        <a class="btn btn--primary" href="/">Back to home</a>
-                    </div>
-                    <p class="secure-note">🔒 Your information was submitted securely.</p>
-                </div>
-            <?php endif; ?>
+            </div>
         </div>
     </div>
 </section>

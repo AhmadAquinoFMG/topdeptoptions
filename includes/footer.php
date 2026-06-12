@@ -50,6 +50,8 @@
                                         'appId'             => FIREBASE_APP_ID,
                                         'messagingSenderId' => FIREBASE_MESSAGING_SENDER_ID,
                                     ],
+                                    'trustedformEnabled' => TRUSTEDFORM_ENABLED,
+                                    'jornayaCampaignId'  => JORNAYA_CAMPAIGN_ID,
                                 ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES) ?>;</script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>

@@ -12,6 +12,8 @@ const BRAND_SHORT = 'TOP DEBT';
 const BRAND_TAGLINE = 'Personalized Debt Relief';
 const SITE_TAGLINE = 'See If You Qualify For Debt Relief';
 const CONTACT_EMAIL = 'support@topdebtoptions.com';
+const SUPPORT_PHONE = '1-833-491-8671';
+const FILE_HOLD_MINUTES = 5; // countdown shown on the thank-you page
 
 /**
  * Load environment variables from .env then .env.local (local overrides base).
@@ -73,6 +75,98 @@ define('FIREBASE_PROJECT_ID', (string) env('FIREBASE_PROJECT_ID', ''));
 define('FIREBASE_APP_ID', (string) env('FIREBASE_APP_ID', ''));
 define('FIREBASE_MESSAGING_SENDER_ID', (string) env('FIREBASE_MESSAGING_SENDER_ID', ''));
 
+// LeadProsper lead ingestion (direct-post API). Set these in .env / .env.local.
+// If LP_CAMPAIGN_ID or LP_KEY is empty, the outbound post is skipped and the lead
+// is still stored locally.
+define('LP_CAMPAIGN_ID', (string) env('LP_CAMPAIGN_ID', ''));
+define('LP_SUPPLIER_ID', (string) env('LP_SUPPLIER_ID', ''));
+define('LP_KEY', (string) env('LP_KEY', ''));
+define('LP_ENDPOINT', 'https://api.leadprosper.io/direct_post');
+// When truthy, leads are posted with lp_action=test so LeadProsper treats them as
+// test submissions (not billed, not delivered). Flip to false for live traffic.
+define('LP_TEST_MODE', filter_var(env('LP_TEST_MODE', 'true'), FILTER_VALIDATE_BOOLEAN));
+
+// Lead-certification scripts. TrustedForm needs no account key (cert URL is created
+// per page load). Jornaya requires a campaign GUID; empty disables the Jornaya script.
+define('TRUSTEDFORM_ENABLED', filter_var(env('TRUSTEDFORM_ENABLED', 'true'), FILTER_VALIDATE_BOOLEAN));
+define('JORNAYA_CAMPAIGN_ID', (string) env('JORNAYA_CAMPAIGN_ID', ''));
+
+// TCPA consent language forwarded to LeadProsper (must match the on-page checkbox).
+const TCPA_TEXT = 'By checking this box, I agree to be contacted by ' . SITE_NAME
+    . ' and its partners at the number provided, including by automated dialing and'
+    . ' prerecorded messages, even if my number is on a Do Not Call list. Consent is'
+    . ' not a condition of purchase. Message and data rates may apply.';
+
+// Attribution params captured from the landing URL (first-touch) and forwarded to
+// LeadProsper. Kept in sync with the LeadProsper field schema.
+const TRACKING_PARAMS = [
+    'affid', 'oid', 'source_id', 'ef_transaction_id', 'event_id',
+    'gclid', 'fbclid', 'gbraid', 'fbp', 'softpull_returned',
+    'utm_campaign', 'utm_source', 'utm_medium', 'utm_term', 'utm_content',
+    'utm_creative', 'utm_placement', 'utm_adgroup', 'utm_matchtype',
+    'lp_subid1', 'lp_subid2', 'lp_subid3', 'lp_subid4', 'lp_subid5',
+    'adv1', 'adv2', 'adv3', 'adv4', 'adv5',
+];
+
+// US states (+ DC) for the address step and LeadProsper's 2-letter `state` field.
+const US_STATES = [
+    'AL' => 'Alabama', 'AK' => 'Alaska', 'AZ' => 'Arizona', 'AR' => 'Arkansas',
+    'CA' => 'California', 'CO' => 'Colorado', 'CT' => 'Connecticut', 'DE' => 'Delaware',
+    'DC' => 'District of Columbia', 'FL' => 'Florida', 'GA' => 'Georgia', 'HI' => 'Hawaii',
+    'ID' => 'Idaho', 'IL' => 'Illinois', 'IN' => 'Indiana', 'IA' => 'Iowa',
+    'KS' => 'Kansas', 'KY' => 'Kentucky', 'LA' => 'Louisiana', 'ME' => 'Maine',
+    'MD' => 'Maryland', 'MA' => 'Massachusetts', 'MI' => 'Michigan', 'MN' => 'Minnesota',
+    'MS' => 'Mississippi', 'MO' => 'Missouri', 'MT' => 'Montana', 'NE' => 'Nebraska',
+    'NV' => 'Nevada', 'NH' => 'New Hampshire', 'NJ' => 'New Jersey', 'NM' => 'New Mexico',
+    'NY' => 'New York', 'NC' => 'North Carolina', 'ND' => 'North Dakota', 'OH' => 'Ohio',
+    'OK' => 'Oklahoma', 'OR' => 'Oregon', 'PA' => 'Pennsylvania', 'RI' => 'Rhode Island',
+    'SC' => 'South Carolina', 'SD' => 'South Dakota', 'TN' => 'Tennessee', 'TX' => 'Texas',
+    'UT' => 'Utah', 'VT' => 'Vermont', 'VA' => 'Virginia', 'WA' => 'Washington',
+    'WV' => 'West Virginia', 'WI' => 'Wisconsin', 'WY' => 'Wyoming',
+];
+
+/**
+ * Convert a debt-range bucket (e.g. "10000-14999" or "100000+") to a single
+ * representative dollar amount (range midpoint) for LeadProsper's numeric fields.
+ */
+function debt_bucket_amount(string $bucket): int
+{
+    if ($bucket === '') {
+        return 0;
+    }
+    if (substr($bucket, -1) === '+') {
+        return (int) rtrim($bucket, '+');
+    }
+    $parts = explode('-', $bucket);
+    $low = (int) ($parts[0] ?? 0);
+    $high = (int) ($parts[1] ?? $low);
+    return (int) round(($low + $high) / 2);
+}
+
+/**
+ * Capture attribution params from the current request into the session on first
+ * touch (existing values win, preserving the original landing attribution). Also
+ * records the first landing URL. Safe to call on every page load.
+ */
+function capture_tracking(): void
+{
+    if (!isset($_SESSION['tracking']) || !is_array($_SESSION['tracking'])) {
+        $_SESSION['tracking'] = [];
+    }
+    foreach (TRACKING_PARAMS as $key) {
+        if (!isset($_SESSION['tracking'][$key]) && isset($_GET[$key]) && $_GET[$key] !== '') {
+            $_SESSION['tracking'][$key] = substr(trim((string) $_GET[$key]), 0, 255);
+        }
+    }
+    if (empty($_SESSION['tracking']['landing_page_url'])) {
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        if ($host !== '') {
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $_SESSION['tracking']['landing_page_url'] = $scheme . '://' . $host . ($_SERVER['REQUEST_URI'] ?? '');
+        }
+    }
+}
+
 /**
  * Escape a string for safe HTML output.
  */
@@ -101,3 +195,6 @@ function csrf_verify(?string $token): bool
         && is_string($token)
         && hash_equals($_SESSION['csrf'], $token);
 }
+
+// Record landing attribution as early as possible, on whichever page is hit first.
+capture_tracking();

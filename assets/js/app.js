@@ -314,9 +314,11 @@
             addr.value = (streetNumber + ' ' + route).trim();
 
             var city = document.getElementById('city');
+            var state = document.getElementById('state');
             var zip = document.getElementById('zip');
             if (city) city.value = fillComponent(c, 'locality') ||
                 fillComponent(c, 'sublocality') || fillComponent(c, 'postal_town');
+            if (state) state.value = fillComponent(c, 'administrative_area_level_1', true);
             if (zip) zip.value = fillComponent(c, 'postal_code');
 
             clearErrors(steps[current]);
@@ -345,8 +347,54 @@
         document.head.appendChild(s);
     }
 
+    // --- Lead certification: TrustedForm + Jornaya (LeadiD) ---
+    function loadCompliance() {
+        var cfg = window.APP_CONFIG || {};
+
+        function inject(src) {
+            var s = document.createElement('script');
+            s.type = 'text/javascript';
+            s.async = true;
+            s.src = src;
+            (document.body || document.head).appendChild(s);
+        }
+
+        // Best-effort client IP into hid_ip_address (server also records REMOTE_ADDR).
+        var ipField = document.getElementById('hid_ip_address');
+        if (ipField && !ipField.value) {
+            try {
+                fetch('https://api.ipify.org?format=json')
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) { if (d && d.ip) ipField.value = d.ip; })
+                    .catch(function () {});
+            } catch (e) {}
+        }
+
+        var https = document.location.protocol === 'https:';
+
+        // TrustedForm — populates xxTrustedFormCertUrl / xxTrustedFormPingUrl by name.
+        if (cfg.trustedformEnabled) {
+            inject((https ? 'https' : 'http') +
+                '://api.trustedform.com/trustedform.js?field=xxTrustedFormCertUrl' +
+                '&ping_field=xxTrustedFormPingUrl&l=' + Date.now() + Math.random());
+        }
+
+        // Jornaya / LeadiD — populates #leadid_token (name="universal_leadid").
+        if (cfg.jornayaCampaignId) {
+            var lj = document.createElement('script');
+            lj.id = 'LeadiDscript_campaign';
+            lj.type = 'text/javascript';
+            lj.async = true;
+            lj.src = (https ? 'https://' : 'http://') +
+                'create.lidstatic.com/campaign/' + encodeURIComponent(cfg.jornayaCampaignId) +
+                '.js?snippet_version=2';
+            (document.body || document.head).appendChild(lj);
+        }
+    }
+
     initDobPicker();
     loadGoogleMaps();
+    loadCompliance();
 
     // Enter key advances instead of submitting mid-flow
     form.addEventListener('keydown', function (ev) {
