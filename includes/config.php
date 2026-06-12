@@ -92,8 +92,9 @@ define('TRUSTEDFORM_ENABLED', filter_var(env('TRUSTEDFORM_ENABLED', 'true'), FIL
 define('JORNAYA_CAMPAIGN_ID', (string) env('JORNAYA_CAMPAIGN_ID', ''));
 
 // Everflow client-side tracking. The SDK is loaded from your account's tracking
-// domain and exposes the click transaction id via EF.getTransactionId(offerId),
-// which is written into hid_ef_tid before submit. Empty domain disables the SDK.
+// domain and registers the visit via EF.click(); the JS then reads EF's first-party
+// cookie for this offer, writing the transaction id into hid_ef_tid (and, for organic
+// visits, the EF-assigned affiliate id into hid_affid). Empty domain disables the SDK.
 define('EVERFLOW_DOMAIN', (string) env('EVERFLOW_DOMAIN', ''));
 define('EVERFLOW_OFFER_ID', (string) env('EVERFLOW_OFFER_ID', ''));
 

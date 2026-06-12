@@ -405,25 +405,87 @@
             (document.body || document.head).appendChild(lj);
         }
 
-        // Everflow — read the click transaction id from its SDK into hid_ef_tid.
+        // Everflow — register the visit, then read attribution from EF's
+        // first-party cookie into hid_ef_tid (and hid_affid for organic visits).
         var ef = cfg.everflow || {};
         var efField = document.getElementById('hid_ef_tid');
+        var affidField = document.getElementById('hid_affid');
         if (ef.domain && efField && !efField.value) {
+            var offer = String(ef.offerId || '');
             var setEfTid = function (tid) { if (tid && efField && !efField.value) efField.value = tid; };
+
+            // Read a query-string param — prefer EF's own helper once loaded.
+            var getParam = function (name) {
+                if (window.EF && typeof EF.urlParameter === 'function') {
+                    try { return EF.urlParameter(name) || ''; } catch (e) {}
+                }
+                try { return new URLSearchParams(location.search).get(name) || ''; } catch (e) { return ''; }
+            };
+
+            // Locate EF's click cookie for this offer. Paid/affiliate visits use
+            // ef_tid_c_a_<offer>; organic visits use ef_tid_c_o_<offer>. With no
+            // configured offer we match the prefix; paid wins over organic.
+            var readEfCookie = function () {
+                var jar = document.cookie ? document.cookie.split(/;\s*/) : [];
+                var paid = null, organic = null;
+                for (var i = 0; i < jar.length; i++) {
+                    var eq = jar[i].indexOf('=');
+                    if (eq < 0) continue;
+                    var k = jar[i].slice(0, eq);
+                    var v = function () { return decodeURIComponent(jar[i].slice(eq + 1)); };
+                    if (paid === null && (offer ? k === 'ef_tid_c_a_' + offer : k.indexOf('ef_tid_c_a_') === 0)) paid = v();
+                    else if (organic === null && (offer ? k === 'ef_tid_c_o_' + offer : k.indexOf('ef_tid_c_o_') === 0)) organic = v();
+                }
+                if (paid) return { organic: false, value: paid };
+                if (organic) return { organic: true, value: organic };
+                return null;
+            };
+
+            // Register the visit so EF drops/refreshes its first-party cookie.
+            var registerClick = function () {
+                if (!window.EF || typeof EF.click !== 'function') return;
+                try {
+                    EF.click({
+                        offer_id: getParam('oid') || offer,
+                        affiliate_id: getParam('affid'),
+                        source_id: getParam('source_id'),
+                        sub1: getParam('sub1'), sub2: getParam('sub2'), sub3: getParam('sub3'),
+                        sub4: getParam('sub4'), sub5: getParam('sub5'),
+                        uid: getParam('uid'),
+                        transaction_id: getParam('transaction_id')
+                    });
+                } catch (e) {}
+            };
+
+            // Poll the cookie until a tid stabilises (same value twice — EF may
+            // rewrite it mid-flight), then commit. The last pipe segment is always
+            // the transaction id; for organic visits the first segment is the
+            // EF-assigned affiliate id, harvested into hid_affid (numeric-guarded)
+            // so the lead still attributes to an EF source. Caps at ~20s.
+            var lastTid = null, attempts = 0, poll;
+            var tick = function () {
+                if (efField.value || attempts++ > 40) { clearInterval(poll); return; }
+                var c = readEfCookie();
+                if (!c || !c.value) return;
+                var parts = c.value.split('|');
+                var tid = parts[parts.length - 1];
+                if (!tid) return;
+                if (tid !== lastTid) { lastTid = tid; return; } // debounce: confirm next tick
+                setEfTid(tid);
+                if (c.organic && affidField && !affidField.value && /^\d+$/.test(parts[0])) {
+                    affidField.value = parts[0];
+                }
+                clearInterval(poll);
+            };
+
             var s = document.createElement('script');
             s.async = true;
             s.src = 'https://' + ef.domain.replace(/^https?:\/\//, '').replace(/\/$/, '') +
                 '/scripts/sdk/everflow.js';
             s.onload = function () {
-                if (!window.EF || typeof EF.getTransactionId !== 'function') return;
-                try {
-                    var res = ef.offerId ? EF.getTransactionId(ef.offerId) : EF.getTransactionId();
-                    if (res && typeof res.then === 'function') {
-                        res.then(setEfTid).catch(function () {});
-                    } else {
-                        setEfTid(res);
-                    }
-                } catch (e) {}
+                registerClick();
+                poll = setInterval(tick, 500);
+                tick();
             };
             document.head.appendChild(s);
         }
