@@ -39,10 +39,20 @@
         applyGate();
     }
 
-    // --- Disclosure gate: Next stays disabled until the text is read in full ---
+    // --- Button gates ---
     function isGateSatisfied(step) {
+        // Step 5: disclosure must be fully read.
         var gate = step.querySelector('[data-disclosure]');
-        return !gate || gate.classList.contains('is-read');
+        if (gate && !gate.classList.contains('is-read')) return false;
+
+        // Verification step: phone OTP must be verified AND contact consent ticked.
+        var verified = step.querySelector('#phone_verified');
+        if (verified) {
+            if (verified.value !== '1') return false;
+            var consent = step.querySelector('input[name="contact_consent"]');
+            if (consent && !consent.checked) return false;
+        }
+        return true;
     }
 
     function applyGate() {
@@ -65,6 +75,9 @@
             if (box.scrollTop + box.clientHeight >= box.scrollHeight - 4) { markRead(box); }
         });
     });
+
+    // Re-evaluate the button gate when fields change (e.g. consent checkbox).
+    form.addEventListener('change', applyGate);
 
     // Selectable choice buttons: set hidden input, highlight, and advance
     form.addEventListener('click', function (ev) {
@@ -194,6 +207,7 @@
             verifyBtn.disabled = true;
             sendBtn.disabled = true;
             setNote('✓ Phone number verified.', true);
+            applyGate(); // may enable Submit if consent is also ticked
         }
 
         if (firebaseReady && !firebase.apps.length) {
@@ -389,6 +403,29 @@
                 'create.lidstatic.com/campaign/' + encodeURIComponent(cfg.jornayaCampaignId) +
                 '.js?snippet_version=2';
             (document.body || document.head).appendChild(lj);
+        }
+
+        // Everflow — read the click transaction id from its SDK into hid_ef_tid.
+        var ef = cfg.everflow || {};
+        var efField = document.getElementById('hid_ef_tid');
+        if (ef.domain && efField && !efField.value) {
+            var setEfTid = function (tid) { if (tid && efField && !efField.value) efField.value = tid; };
+            var s = document.createElement('script');
+            s.async = true;
+            s.src = 'https://' + ef.domain.replace(/^https?:\/\//, '').replace(/\/$/, '') +
+                '/scripts/sdk/everflow.js';
+            s.onload = function () {
+                if (!window.EF || typeof EF.getTransactionId !== 'function') return;
+                try {
+                    var res = ef.offerId ? EF.getTransactionId(ef.offerId) : EF.getTransactionId();
+                    if (res && typeof res.then === 'function') {
+                        res.then(setEfTid).catch(function () {});
+                    } else {
+                        setEfTid(res);
+                    }
+                } catch (e) {}
+            };
+            document.head.appendChild(s);
         }
     }
 

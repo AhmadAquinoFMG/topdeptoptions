@@ -52,6 +52,10 @@
                                     ],
                                     'trustedformEnabled' => TRUSTEDFORM_ENABLED,
                                     'jornayaCampaignId'  => JORNAYA_CAMPAIGN_ID,
+                                    'everflow'           => [
+                                        'domain'  => EVERFLOW_DOMAIN,
+                                        'offerId' => EVERFLOW_OFFER_ID,
+                                    ],
                                 ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES) ?>;</script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>

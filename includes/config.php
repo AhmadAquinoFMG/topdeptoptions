@@ -91,6 +91,12 @@ define('LP_TEST_MODE', filter_var(env('LP_TEST_MODE', 'true'), FILTER_VALIDATE_B
 define('TRUSTEDFORM_ENABLED', filter_var(env('TRUSTEDFORM_ENABLED', 'true'), FILTER_VALIDATE_BOOLEAN));
 define('JORNAYA_CAMPAIGN_ID', (string) env('JORNAYA_CAMPAIGN_ID', ''));
 
+// Everflow client-side tracking. The SDK is loaded from your account's tracking
+// domain and exposes the click transaction id via EF.getTransactionId(offerId),
+// which is written into hid_ef_tid before submit. Empty domain disables the SDK.
+define('EVERFLOW_DOMAIN', (string) env('EVERFLOW_DOMAIN', ''));
+define('EVERFLOW_OFFER_ID', (string) env('EVERFLOW_OFFER_ID', ''));
+
 // TCPA consent language forwarded to LeadProsper (must match the on-page checkbox).
 const TCPA_TEXT = 'By checking this box, I agree to be contacted by ' . SITE_NAME
     . ' and its partners at the number provided, including by automated dialing and'
@@ -106,6 +112,13 @@ const TRACKING_PARAMS = [
     'utm_creative', 'utm_placement', 'utm_adgroup', 'utm_matchtype',
     'lp_subid1', 'lp_subid2', 'lp_subid3', 'lp_subid4', 'lp_subid5',
     'adv1', 'adv2', 'adv3', 'adv4', 'adv5',
+];
+
+// Alternate query-param spellings that map to a canonical tracking key, so traffic
+// sources using a different name (e.g. Everflow's {transaction_id} arriving as
+// _ef_transaction_id) still populate the same field. The canonical key wins if present.
+const TRACKING_ALIASES = [
+    'ef_transaction_id' => ['_ef_transaction_id', 'transaction_id', 'tid'],
 ];
 
 // US states (+ DC) for the address step and LeadProsper's 2-letter `state` field.
@@ -156,6 +169,18 @@ function capture_tracking(): void
     foreach (TRACKING_PARAMS as $key) {
         if (!isset($_SESSION['tracking'][$key]) && isset($_GET[$key]) && $_GET[$key] !== '') {
             $_SESSION['tracking'][$key] = substr(trim((string) $_GET[$key]), 0, 255);
+        }
+    }
+    // Fill canonical keys from alternate param spellings (first non-empty alias wins).
+    foreach (TRACKING_ALIASES as $canonical => $aliases) {
+        if (!empty($_SESSION['tracking'][$canonical])) {
+            continue;
+        }
+        foreach ($aliases as $alias) {
+            if (isset($_GET[$alias]) && $_GET[$alias] !== '') {
+                $_SESSION['tracking'][$canonical] = substr(trim((string) $_GET[$alias]), 0, 255);
+                break;
+            }
         }
     }
     if (empty($_SESSION['tracking']['landing_page_url'])) {
