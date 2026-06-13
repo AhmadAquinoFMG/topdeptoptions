@@ -111,7 +111,10 @@ define('EQUIFAX_API_KEY', (string) env(EQUIFAX_IS_PROD ? 'EQUIFAX_PRODUCTION_API
 define('EQUIFAX_API_SECRET', (string) env(EQUIFAX_IS_PROD ? 'EQUIFAX_PRODUCTION_API_SECRET' : 'EQUIFAX_SANDBOX_API_SECRET', ''));
 // API host + OAuth scope, defaulted per mode (override with EQUIFAX_API_BASE / EQUIFAX_SCOPE).
 define('EQUIFAX_API_BASE', rtrim((string) env('EQUIFAX_API_BASE', EQUIFAX_IS_PROD ? 'https://api.equifax.com' : 'https://api.sandbox.equifax.com'), '/'));
-define('EQUIFAX_SCOPE', (string) env('EQUIFAX_SCOPE', 'https://api.equifax.com/business/consumer-credit-report/v1'));
+// Empty by default: this account's token endpoint rejects an explicit scope with
+// "invalid_scope" (HTTP 400) and only issues a token when `scope` is omitted. Set
+// EQUIFAX_SCOPE in .env only if a specific account requires one.
+define('EQUIFAX_SCOPE', (string) env('EQUIFAX_SCOPE', ''));
 // Token + product endpoint paths (relative to EQUIFAX_API_BASE).
 define('EQUIFAX_TOKEN_PATH', (string) env('EQUIFAX_TOKEN_PATH', '/v2/oauth/token'));
 define('EQUIFAX_PRODUCT_PATH', (string) env('EQUIFAX_PRODUCT_PATH', '/business/consumer-credit-report/v1/reports'));

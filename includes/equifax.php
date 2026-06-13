@@ -74,19 +74,29 @@ function equifax_http(string $method, string $url, string $body, array $headers)
 /**
  * Fetch (and per-request cache) an OAuth2 access token via the client-credentials
  * grant. Returns the bearer token string, or null on failure.
+ *
+ * On failure, $debug (if passed) is populated with the token endpoint's HTTP status,
+ * transport error and response body so the caller can log *why* auth failed — an opaque
+ * "token request failed" is useless for diagnosing invalid_scope / invalid_client.
+ *
+ * The `scope` parameter is sent only when EQUIFAX_SCOPE is non-empty: this account's
+ * token endpoint rejects any explicit scope and issues a token only when it's omitted.
+ *
+ * @param array{status:int,error:?string,response:?string}|null $debug
  */
-function equifax_access_token(): ?string
+function equifax_access_token(?array &$debug = null): ?string
 {
     static $cached = null;
     if ($cached !== null) {
         return $cached;
     }
 
-    $url  = EQUIFAX_API_BASE . EQUIFAX_TOKEN_PATH;
-    $body = http_build_query([
-        'grant_type' => 'client_credentials',
-        'scope'      => EQUIFAX_SCOPE,
-    ]);
+    $url    = EQUIFAX_API_BASE . EQUIFAX_TOKEN_PATH;
+    $params = ['grant_type' => 'client_credentials'];
+    if (EQUIFAX_SCOPE !== '') {
+        $params['scope'] = EQUIFAX_SCOPE;
+    }
+    $body  = http_build_query($params);
     $basic = base64_encode(EQUIFAX_API_KEY . ':' . EQUIFAX_API_SECRET);
     $headers = [
         'Authorization: Basic ' . $basic,
@@ -95,6 +105,7 @@ function equifax_access_token(): ?string
     ];
 
     [$status, $resp, $err] = equifax_http('POST', $url, $body, $headers);
+    $debug = ['status' => $status, 'error' => $err, 'response' => is_string($resp) ? $resp : null];
     if ($err !== null || $status < 200 || $status >= 300) {
         return null;
     }
@@ -309,9 +320,16 @@ function equifax_softpull(array $data): array
         return $result;
     }
 
-    $token = equifax_access_token();
+    $tokenDebug = null;
+    $token = equifax_access_token($tokenDebug);
     if ($token === null) {
-        $result['error'] = 'Equifax OAuth token request failed.';
+        $result['status']   = (int) ($tokenDebug['status'] ?? 0);
+        $result['response'] = is_string($tokenDebug['response'] ?? null) ? $tokenDebug['response'] : null;
+        $reason = $tokenDebug['error'] ?? null;
+        if ($reason === null && !empty($tokenDebug['status'])) {
+            $reason = 'HTTP ' . $tokenDebug['status'];
+        }
+        $result['error'] = 'Equifax OAuth token request failed' . ($reason ? ': ' . $reason : '') . '.';
         return $result;
     }
 
