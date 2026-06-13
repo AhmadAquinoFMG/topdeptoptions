@@ -159,6 +159,9 @@
             current++;
             render();
         } else {
+            // Final step: show progress and lock the button to prevent double-submits.
+            primaryBtn.disabled = true;
+            primaryBtn.textContent = 'Submitting…';
             form.submit();
         }
     });
