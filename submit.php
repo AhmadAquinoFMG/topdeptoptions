@@ -135,10 +135,12 @@ if (!$errors) {
         $tracking['ef_transaction_id'] = field('hid_ef_tid');
     }
 
-    // Debt under $10k doesn't meet the debt-relief program threshold, so these
-    // applicants are routed to the decline offerwall instead of the thank-you
-    // page — but the lead is still posted to LeadProsper either way.
-    $qualifies = debt_bucket_amount($data['debt_amount']) >= 10000;
+    // Qualification runs on the Equifax-verified total debt, so a lead reaches the
+    // thank-you page only when the soft pull confirmed $10k+. Anything under $10k —
+    // whether verified low or unverified (soft pull failed, so total debt is 0) — is
+    // routed to the decline offerwall instead. The lead is posted to LeadProsper
+    // either way.
+    $qualifies = lead_total_debt($data, $tracking) >= 10000;
 
     // Post to LeadProsper. This never throws and must never block the user — a
     // rejection or outage is logged with the lead, but they still get routed on.

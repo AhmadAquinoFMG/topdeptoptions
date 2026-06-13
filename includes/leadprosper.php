@@ -11,6 +11,22 @@
 declare(strict_types=1);
 
 /**
+ * The Equifax-verified total debt used for program qualification and posted as
+ * LeadProsper's `total_debt`. The soft pull reports back via the `softpull_returned`
+ * flag: when it's empty/falsey the pull failed, so we can't claim a verified figure
+ * and return 0. When it succeeds we use the self-assessed bucket amount.
+ *
+ * @param array $data     Validated lead fields from submit.php.
+ * @param array $tracking First-touch attribution params (carries softpull_returned).
+ */
+function lead_total_debt(array $data, array $tracking): int
+{
+    $softpull = strtolower((string) ($tracking['softpull_returned'] ?? ''));
+    $softpullOk = $softpull !== '' && !in_array($softpull, ['0', 'false', 'no'], true);
+    return $softpullOk ? debt_bucket_amount((string) ($data['debt_amount'] ?? '')) : 0;
+}
+
+/**
  * Build the LeadProsper payload from the internal lead $data plus first-touch
  * attribution. Empty values are dropped so optional fields aren't posted blank.
  *
@@ -26,7 +42,10 @@ function leadprosper_payload(array $data, array $tracking): array
         $phone = substr($phone, 1);
     }
 
+    // `total_debt` is the Equifax-verified figure; `self_assessed_debt` is what the
+    // user entered. A failed soft pull zeroes total_debt (see lead_total_debt()).
     $debt = debt_bucket_amount((string) ($data['debt_amount'] ?? ''));
+    $totalDebt = lead_total_debt($data, $tracking);
 
     $payload = [
         'lp_campaign_id'       => LP_CAMPAIGN_ID,
@@ -42,7 +61,7 @@ function leadprosper_payload(array $data, array $tracking): array
         'state'                => strtoupper((string) ($data['state'] ?? '')),
         'zip_code'             => $data['zip'] ?? '',
         'ip_address'           => $data['ip'] ?? '',
-        'total_debt'           => $debt,
+        'total_debt'           => $totalDebt,
         'self_assessed_debt'   => $debt,
         'behind_payment'       => $data['payment_status'] ?? '',
         'trustedform_cert_url' => $data['trustedform_cert_url'] ?? '',
