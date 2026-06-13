@@ -170,6 +170,29 @@ function equifax_request_payload(array $data): array
 }
 
 /**
+ * Redact account secrets from a request payload before it's logged. The member number,
+ * security code and customer code identify our Equifax account and must never be
+ * persisted with the lead; everything else (the consumer identity we sent) is kept so
+ * the audit log shows what was submitted.
+ *
+ * @param array $payload Output of equifax_request_payload().
+ * @return array
+ */
+function equifax_redact_payload(array $payload): array
+{
+    $creditReport = $payload['customerConfiguration']['equifaxUSConsumerCreditReport'] ?? null;
+    if (is_array($creditReport)) {
+        foreach (['memberNumber', 'securityCode', 'customerCode'] as $secret) {
+            if (isset($creditReport[$secret]) && $creditReport[$secret] !== '') {
+                $creditReport[$secret] = '***';
+            }
+        }
+        $payload['customerConfiguration']['equifaxUSConsumerCreditReport'] = $creditReport;
+    }
+    return $payload;
+}
+
+/**
  * Read a value out of a decoded JSON response by dot-path (e.g. "a.b.0.c").
  * Returns null if any segment is missing.
  *
@@ -258,8 +281,14 @@ function equifax_extract_total_debt($decoded): ?int
  * (not configured, auth failure, HTTP error, unparseable response) `ok` is false and
  * `total_debt` is null — the caller treats that as an unverified lead.
  *
+ * Mirrors leadprosper_submit()'s audit shape so the logger shows what we sent and what
+ * came back: `sent` is the request payload with account secrets redacted (never persist
+ * the member/security/customer codes). The raw `response` is logged only on failure —
+ * a successful pull returns a full consumer credit report (heavy PII) we deliberately
+ * keep out of the lead log, having already extracted the one figure we need.
+ *
  * @param array $data Validated lead fields from submit.php.
- * @return array{ok:bool, skipped:bool, status:int, total_debt:?int, transaction_id:?string, error:?string}
+ * @return array{ok:bool, skipped:bool, status:int, total_debt:?int, transaction_id:?string, error:?string, sent:array, response:?string}
  */
 function equifax_softpull(array $data): array
 {
@@ -270,6 +299,8 @@ function equifax_softpull(array $data): array
         'total_debt'     => null,
         'transaction_id' => null,
         'error'          => null,
+        'sent'           => [],
+        'response'       => null,
     ];
 
     if (!equifax_configured()) {
@@ -284,8 +315,12 @@ function equifax_softpull(array $data): array
         return $result;
     }
 
+    $payload = equifax_request_payload($data);
+    // Stored for the audit log with account identifiers redacted — never persist secrets.
+    $result['sent'] = equifax_redact_payload($payload);
+
     $url     = EQUIFAX_API_BASE . EQUIFAX_PRODUCT_PATH;
-    $body    = json_encode(equifax_request_payload($data), JSON_UNESCAPED_SLASHES);
+    $body    = json_encode($payload, JSON_UNESCAPED_SLASHES);
     $headers = [
         'Authorization: Bearer ' . $token,
         'Content-Type: application/json',
@@ -299,12 +334,15 @@ function equifax_softpull(array $data): array
         return $result;
     }
     if ($status < 200 || $status >= 300) {
+        // Non-2xx bodies are error diagnostics, not credit data — safe to log.
+        $result['response'] = is_string($resp) ? $resp : null;
         $result['error'] = 'Equifax returned HTTP ' . $status;
         return $result;
     }
 
     $decoded = json_decode((string) $resp, true);
     if (!is_array($decoded)) {
+        $result['response'] = is_string($resp) ? $resp : null;
         $result['error'] = 'Equifax response was not valid JSON.';
         return $result;
     }
