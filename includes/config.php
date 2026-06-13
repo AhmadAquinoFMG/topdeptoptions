@@ -98,6 +98,33 @@ define('JORNAYA_CAMPAIGN_ID', (string) env('JORNAYA_CAMPAIGN_ID', ''));
 define('EVERFLOW_DOMAIN', (string) env('EVERFLOW_DOMAIN', ''));
 define('EVERFLOW_OFFER_ID', (string) env('EVERFLOW_OFFER_ID', ''));
 
+// Equifax Consumer Credit Report (Equifax Developer Platform, OAuth2 client-credentials).
+// We pull a credit report server-side from the lead's identity and read back a verified
+// total-debt figure for qualification. If the resolved API key/secret is empty the pull
+// is skipped and we fall back to the upstream softpull_returned flag (see lead_total_debt()).
+//
+// EQUIFAX_MODE selects the environment: 'production' uses the prod host + PRODUCTION_*
+// credentials; anything else ('sandbox') uses the sandbox host + SANDBOX_* credentials.
+define('EQUIFAX_MODE', strtolower((string) env('EQUIFAX_MODE', 'sandbox')));
+define('EQUIFAX_IS_PROD', EQUIFAX_MODE === 'production');
+define('EQUIFAX_API_KEY', (string) env(EQUIFAX_IS_PROD ? 'EQUIFAX_PRODUCTION_API_KEY' : 'EQUIFAX_SANDBOX_API_KEY', ''));
+define('EQUIFAX_API_SECRET', (string) env(EQUIFAX_IS_PROD ? 'EQUIFAX_PRODUCTION_API_SECRET' : 'EQUIFAX_SANDBOX_API_SECRET', ''));
+// API host + OAuth scope, defaulted per mode (override with EQUIFAX_API_BASE / EQUIFAX_SCOPE).
+define('EQUIFAX_API_BASE', rtrim((string) env('EQUIFAX_API_BASE', EQUIFAX_IS_PROD ? 'https://api.equifax.com' : 'https://api.sandbox.equifax.com'), '/'));
+define('EQUIFAX_SCOPE', (string) env('EQUIFAX_SCOPE', 'https://api.equifax.com/business/consumer-credit-report/v1'));
+// Token + product endpoint paths (relative to EQUIFAX_API_BASE).
+define('EQUIFAX_TOKEN_PATH', (string) env('EQUIFAX_TOKEN_PATH', '/v2/oauth/token'));
+define('EQUIFAX_PRODUCT_PATH', (string) env('EQUIFAX_PRODUCT_PATH', '/business/consumer-credit-report/v1/reports'));
+// Account identifiers stamped into customerConfiguration.equifaxUSConsumerCreditReport.
+define('EQUIFAX_MEMBER_NUMBER', (string) env('EQUIFAX_MEMBER_NUMBER', ''));
+define('EQUIFAX_SECURITY_CODE', (string) env('EQUIFAX_SECURITY_CODE', ''));
+define('EQUIFAX_CUSTOMER_CODE', (string) env('EQUIFAX_CUSTOMER_CODE', ''));
+define('EQUIFAX_ECOA_INQUIRY_TYPE', (string) env('EQUIFAX_ECOA_INQUIRY_TYPE', 'Individual'));
+define('EQUIFAX_MULTIPLE_REPORT_INDICATOR', (string) env('EQUIFAX_MULTIPLE_REPORT_INDICATOR', '1'));
+// Dot-path into the JSON response that holds a precomputed total debt, if your product
+// returns one (e.g. an attribute model). When absent we sum trade balances instead.
+define('EQUIFAX_TOTAL_DEBT_PATH', (string) env('EQUIFAX_TOTAL_DEBT_PATH', ''));
+
 // TCPA consent language forwarded to LeadProsper (must match the on-page checkbox).
 const TCPA_TEXT = 'By checking this box, I agree to be contacted by ' . SITE_NAME
     . ' and its partners at the number provided, including by automated dialing and'

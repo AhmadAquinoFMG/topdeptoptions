@@ -12,15 +12,22 @@ declare(strict_types=1);
 
 /**
  * The Equifax-verified total debt used for program qualification and posted as
- * LeadProsper's `total_debt`. The soft pull reports back via the `softpull_returned`
- * flag: when it's empty/falsey the pull failed, so we can't claim a verified figure
- * and return 0. When it succeeds we use the self-assessed bucket amount.
+ * LeadProsper's `total_debt`.
  *
- * @param array $data     Validated lead fields from submit.php.
+ * When the server-side Equifax soft pull succeeds, submit.php sets
+ * `verified_total_debt` on the lead — that real figure wins. Otherwise we fall back to
+ * the upstream `softpull_returned` flag: when it's truthy a pull happened elsewhere and
+ * we use the self-assessed bucket amount; when it's empty/falsey there is no verified
+ * figure and we return 0.
+ *
+ * @param array $data     Validated lead fields from submit.php (carries verified_total_debt).
  * @param array $tracking First-touch attribution params (carries softpull_returned).
  */
 function lead_total_debt(array $data, array $tracking): int
 {
+    if (isset($data['verified_total_debt']) && is_numeric($data['verified_total_debt'])) {
+        return max(0, (int) $data['verified_total_debt']);
+    }
     $softpull = strtolower((string) ($tracking['softpull_returned'] ?? ''));
     $softpullOk = $softpull !== '' && !in_array($softpull, ['0', 'false', 'no'], true);
     return $softpullOk ? debt_bucket_amount((string) ($data['debt_amount'] ?? '')) : 0;

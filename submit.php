@@ -1,6 +1,7 @@
 <?php
 require __DIR__ . '/includes/config.php';
 require __DIR__ . '/includes/firebase.php';
+require __DIR__ . '/includes/equifax.php';
 require __DIR__ . '/includes/leadprosper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -135,6 +136,19 @@ if (!$errors) {
         $tracking['ef_transaction_id'] = field('hid_ef_tid');
     }
 
+    // Equifax soft pull: run a server-side no-SSN soft inquiry to get a verified total
+    // debt. Never throws and never blocks the user. On success we record the figure on
+    // the lead and mark softpull_returned so downstream qualification + LeadProsper use
+    // the real number; on failure the lead is treated as unverified (total debt 0).
+    $equifax = equifax_softpull($data);
+    if ($equifax['ok']) {
+        $data['verified_total_debt'] = $equifax['total_debt'];
+        $tracking['softpull_returned'] = '1';
+        if (!empty($equifax['transaction_id']) && empty($tracking['ef_transaction_id'])) {
+            $tracking['ef_transaction_id'] = $equifax['transaction_id'];
+        }
+    }
+
     // Qualification runs on the Equifax-verified total debt, so a lead reaches the
     // thank-you page only when the soft pull confirmed $10k+. Anything under $10k —
     // whether verified low or unverified (soft pull failed, so total debt is 0) — is
@@ -154,6 +168,7 @@ if (!$errors) {
     $record['submitted_at'] = date('c');
     $record['tracking'] = $tracking;
     $record['outcome'] = $qualifies ? 'qualified' : 'offerwall';
+    $record['equifax'] = $equifax;
     $record['leadprosper'] = $lp;
     @file_put_contents(
         $storeDir . '/leads.jsonl',
