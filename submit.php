@@ -135,8 +135,13 @@ if (!$errors) {
         $tracking['ef_transaction_id'] = field('hid_ef_tid');
     }
 
+    // Debt under $10k doesn't meet the debt-relief program threshold, so these
+    // applicants are routed to the decline offerwall instead of the thank-you
+    // page — but the lead is still posted to LeadProsper either way.
+    $qualifies = debt_bucket_amount($data['debt_amount']) >= 10000;
+
     // Post to LeadProsper. This never throws and must never block the user — a
-    // rejection or outage is logged with the lead, but they still see thank-you.
+    // rejection or outage is logged with the lead, but they still get routed on.
     $lp = leadprosper_submit($data, $tracking);
 
     $storeDir = __DIR__ . '/storage';
@@ -146,21 +151,33 @@ if (!$errors) {
     $record = $data;
     $record['submitted_at'] = date('c');
     $record['tracking'] = $tracking;
+    $record['outcome'] = $qualifies ? 'qualified' : 'offerwall';
     $record['leadprosper'] = $lp;
     @file_put_contents(
         $storeDir . '/leads.jsonl',
         json_encode($record, JSON_UNESCAPED_SLASHES) . PHP_EOL,
         FILE_APPEND | LOCK_EX
     );
-    // Stash a one-time flash for the thank-you page, then redirect (PRG pattern).
+
+    // Rotate CSRF token to prevent resubmission, then redirect (PRG pattern).
+    unset($_SESSION['csrf']);
+
+    if (!$qualifies) {
+        // Decline offerwall: keep session attribution so the offerwall can resolve
+        // CTA links by affid. Personalize the heading with the first name.
+        $_SESSION['lead_offerwall'] = ['first_name' => $data['first_name']];
+        header('Location: /offerwall.php');
+        exit;
+    }
+
+    // Qualified: stash a one-time flash for the thank-you page, clear attribution.
     $_SESSION['lead_success'] = [
         'first_name'  => $data['first_name'],
         'email'       => $data['email'],
         'phone'       => $data['phone'],
         'debt_amount' => $data['debt_amount'],
     ];
-    // Rotate CSRF token to prevent resubmission; clear attribution for the next lead.
-    unset($_SESSION['csrf'], $_SESSION['tracking']);
+    unset($_SESSION['tracking']);
     header('Location: /thank-you.php');
     exit;
 }
