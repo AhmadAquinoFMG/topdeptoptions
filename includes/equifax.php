@@ -131,6 +131,10 @@ function equifax_access_token(?array &$debug = null): ?string
  */
 function equifax_request_payload(array $data): array
 {
+    // OneView expects DOB as MMDDYYYY; the funnel collects it as YYYY-MM-DD.
+    $dobRaw = (string) ($data['dob'] ?? '');
+    $dobTs  = $dobRaw !== '' ? strtotime($dobRaw) : false;
+
     $consumers = [
         'name' => [[
             'identifier' => 'current',
@@ -139,16 +143,12 @@ function equifax_request_payload(array $data): array
         ]],
         'addresses' => [[
             'identifier' => 'current',
-            'houseNumber' => '',
-            'streetName'  => trim((string) ($data['address'] ?? '')),
-            'city'        => (string) ($data['city'] ?? ''),
-            'state'       => strtoupper((string) ($data['state'] ?? '')),
-            'zip'         => (string) ($data['zip'] ?? ''),
+            'streetName' => trim((string) ($data['address'] ?? '')),
+            'city'       => (string) ($data['city'] ?? ''),
+            'state'      => strtoupper((string) ($data['state'] ?? '')),
+            'zip'        => (string) ($data['zip'] ?? ''),
         ]],
-        'dateOfBirths' => [[
-            'identifier' => 'current',
-            'date'       => (string) ($data['dob'] ?? ''), // YYYY-MM-DD
-        ]],
+        'dateOfBirth' => $dobTs !== false ? date('mdY', $dobTs) : '',
     ];
 
     // SSN is optional for this funnel; include it only when present.
@@ -170,6 +170,11 @@ function equifax_request_payload(array $data): array
     ], static function ($v) {
         return $v !== '' && $v !== null;
     });
+
+    // OneView requires the entitled credit-model id under .models; omit when unset.
+    if (EQUIFAX_MODEL_ID !== '') {
+        $creditReportConfig['models'] = [['identifier' => EQUIFAX_MODEL_ID]];
+    }
 
     return [
         'consumers' => $consumers,

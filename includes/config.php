@@ -115,9 +115,14 @@ define('EQUIFAX_API_BASE', rtrim((string) env('EQUIFAX_API_BASE', EQUIFAX_IS_PRO
 // "invalid_scope" (HTTP 400) and only issues a token when `scope` is omitted. Set
 // EQUIFAX_SCOPE in .env only if a specific account requires one.
 define('EQUIFAX_SCOPE', (string) env('EQUIFAX_SCOPE', ''));
-// Token + product endpoint paths (relative to EQUIFAX_API_BASE).
+// Token + product endpoint paths (relative to EQUIFAX_API_BASE). The product path is
+// the OneView consumer-credit report this account is entitled to (the granted token
+// scope is .../business/oneview/consumer-credit/v1) — not the generic credit-report API.
 define('EQUIFAX_TOKEN_PATH', (string) env('EQUIFAX_TOKEN_PATH', '/v2/oauth/token'));
-define('EQUIFAX_PRODUCT_PATH', (string) env('EQUIFAX_PRODUCT_PATH', '/business/consumer-credit-report/v1/reports'));
+define('EQUIFAX_PRODUCT_PATH', (string) env('EQUIFAX_PRODUCT_PATH', '/business/oneview/consumer-credit/v1/reports/credit-report'));
+// OneView credit model id requested under equifaxUSConsumerCreditReport.models.
+// 05734 is the account's entitled model; empty omits the models block entirely.
+define('EQUIFAX_MODEL_ID', (string) env('EQUIFAX_MODEL_ID', '05734'));
 // Account identifiers stamped into customerConfiguration.equifaxUSConsumerCreditReport.
 define('EQUIFAX_MEMBER_NUMBER', (string) env('EQUIFAX_MEMBER_NUMBER', ''));
 define('EQUIFAX_SECURITY_CODE', (string) env('EQUIFAX_SECURITY_CODE', ''));

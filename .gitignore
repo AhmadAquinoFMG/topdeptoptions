@@ -6,3 +6,5 @@
 # Submitted lead storage (contains PII) — keep the dir, ignore the data
 /storage/*
 !/storage/.gitkeep
+
+equifax_token_check.php
