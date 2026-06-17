@@ -145,7 +145,7 @@ $token = csrf_token();
                         <h2 class="step__title">Where should we send your results?</h2>
                         <div class="field">
                             <label class="field-label" for="email">Email address</label>
-                            <input type="email" id="email" name="email" autocomplete="email" data-required data-pattern="^[^@\s]+@[^@\s]+\.[^@\s]+$" data-error-text="Enter a valid email address.">
+                            <input type="email" id="email" name="email" autocomplete="email" data-required data-pattern="^(?!.*\.\.)[^@\s.]+(\.[^@\s.]+)*@[^@\s.]+(\.[^@\s.]+)+$" data-error-text="Enter a valid email address.">
                             <p class="error-msg" data-error>Please enter a valid email address.</p>
                         </div>
                     </fieldset>

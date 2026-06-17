@@ -94,7 +94,7 @@ if ($data['first_name'] === '' || $data['last_name'] === '') {
 if (!$data['credit_consent']) {
     $errors[] = 'Credit profile authorization is required.';
 }
-if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL) || strpos($data['email'], '..') !== false) {
     $errors[] = 'Please provide a valid email address.';
 }
 if (!preg_match('/^[\d\s().+-]{10,}$/', $data['phone'])) {
