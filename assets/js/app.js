@@ -13,6 +13,87 @@
     var backBtn = document.getElementById('btn-back');
     var primaryBtn = document.getElementById('btn-primary');
 
+    // --- Funnel analytics ---------------------------------------------------
+    // One readable slug per step, baked into the event name so each step is a
+    // distinct dashboard event. Keyed by 1-based step number.
+    var STAGE_SLUG = {
+        1: 'debt_amount',
+        2: 'payment_status',
+        3: 'address',
+        4: 'dob',
+        5: 'name_consent',
+        6: 'email',
+        7: 'phone_verify'
+    };
+    var A = window.TDOAnalytics;
+
+    var stepStart = 0;        // performance.now() when the current step mounted
+    var funnelDone = false;   // true once the form is submitted — suppresses abandon
+    var abandoned = false;    // true once abandon fired for the current active stretch
+
+    function nowMs() { try { return performance.now(); } catch (e) { return 0; } }
+    function stepNo() { return current + 1; }
+    function stageSlug() { return STAGE_SLUG[stepNo()] || ('step_' + stepNo()); }
+    function durationMs() { return Math.round(nowMs() - stepStart); }
+
+    // Fired when a step mounts. Starts the time-on-step clock and re-arms abandon.
+    function trackView() {
+        stepStart = nowMs();
+        abandoned = false;
+        if (!A) return;
+        A.track('event_view_' + stageSlug(), { step: stepNo(), stage: stageSlug() });
+    }
+
+    // Fired on a successful advance OUT of a step (parameterized by the step left).
+    function trackFillup(leftStep, leftStage, duration) {
+        if (!A) return;
+        A.track('event_fillup_' + leftStage, { step: leftStep, stage: leftStage, duration_ms: duration });
+    }
+
+    // Fired via beacon during unload/navigation, before submit, at most once per
+    // active stretch. Re-armed by trackView() / a resume.
+    function trackAbandon(reason) {
+        if (funnelDone || abandoned) return;
+        abandoned = true;
+        if (!A) return;
+        A.trackBeacon('event_abandon_' + stageSlug(), {
+            step: stepNo(), stage: stageSlug(), reason: reason, duration_ms: durationMs()
+        });
+    }
+
+    // Fired when the tab returns to visible after an abandon; re-arms the detector
+    // so a benign tab-switch nets out (a lone abandon = a true drop-off).
+    function trackResume() {
+        if (funnelDone || !abandoned) return;
+        abandoned = false;
+        if (!A) return;
+        A.track('event_resume_' + stageSlug(), { step: stepNo(), stage: stageSlug() });
+    }
+
+    function trackSubmitSuccess() {
+        if (!A) return;
+        var debt = (document.getElementById('debt_amount') || {}).value || '';
+        var pay = (document.getElementById('payment_status') || {}).value || '';
+        // Fires during navigation away to submit.php — use the unload-safe transport.
+        A.trackBeacon('event_submit_success', {
+            step: stepNo(),
+            stage: stageSlug(),
+            duration_ms: durationMs(),
+            value: debt,
+            debt_amount: debt,
+            payment_status: pay
+        });
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') {
+            trackAbandon('visibility_hidden');
+        } else if (document.visibilityState === 'visible') {
+            trackResume();
+        }
+    });
+    window.addEventListener('pagehide', function () { trackAbandon('pagehide'); });
+
     function primaryLabel(index) {
         if (index === 0) return 'Continue';
         if (index === total - 1) return 'Submit';
@@ -37,6 +118,8 @@
         var box = steps[current].querySelector('[data-disclosure-scroll]');
         if (box && box.scrollHeight <= box.clientHeight + 4) { markRead(box); }
         applyGate();
+
+        trackView();
     }
 
     // --- Button gates ---
@@ -90,7 +173,11 @@
             opt.classList.toggle('is-selected', opt === btn);
         });
         clearErrors(steps[current]);
-        if (current < total - 1) { current++; render(); }
+        if (current < total - 1) {
+            trackFillup(stepNo(), stageSlug(), durationMs());
+            current++;
+            render();
+        }
     });
 
     function clearErrors(step) {
@@ -156,10 +243,15 @@
     primaryBtn.addEventListener('click', function () {
         if (!validateStep(steps[current])) return;
         if (current < total - 1) {
+            trackFillup(stepNo(), stageSlug(), durationMs());
             current++;
             render();
         } else {
-            // Final step: show progress and lock the button to prevent double-submits.
+            // Final step: funnel completion. Stamp it before navigating away, and
+            // mark the funnel done so the unload handlers don't log a false abandon.
+            funnelDone = true;
+            trackSubmitSuccess();
+            // Show progress and lock the button to prevent double-submits.
             primaryBtn.disabled = true;
             primaryBtn.textContent = 'Submitting…';
             form.submit();

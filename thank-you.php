@@ -214,11 +214,67 @@ require __DIR__ . '/includes/header.php';
                     total--;
                 } else {
                     clearInterval(timer);
+                    if (window.TDOAnalytics) window.TDOAnalytics.track('timer_expired', {});
                 }
             };
             tick();
             timer = setInterval(tick, 1000);
         }
     })();
+
+    // --- Analytics: thank-you (conversion / confirmation page) --------------
+    // Deferred to DOMContentLoaded so the (deferred) Umami script is ready.
+    document.addEventListener('DOMContentLoaded', function() {
+        var A = window.TDOAnalytics;
+        if (!A) return;
+
+        // Personalization state, resolved server-side from the one-time lead flash.
+        var PERSONALIZATION = <?= json_encode([
+                                    'matched' => $lead !== null,
+                                    'savings' => $savings,
+                                    'debt_mid' => $debtMid,
+                                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+        var viewedAt = (function() { try { return performance.now(); } catch (e) { return 0; } })();
+        function sinceView() { try { return Math.round(performance.now() - viewedAt); } catch (e) { return 0; } }
+
+        // Page landing.
+        A.track('thank_you_view', {});
+
+        // Personalization (the pre-qualified offer) loaded or not. A direct hit
+        // with no lead flash in session has no data to personalize from.
+        if (PERSONALIZATION.matched) {
+            A.track('offer_matched', { savings: PERSONALIZATION.savings, debt_mid: PERSONALIZATION.debt_mid });
+        } else {
+            A.track('offer_match_failed', { error_type: 'no_data' });
+        }
+
+        // Primary CTA: the call button. Beacon so it survives the tel: handoff.
+        var call = document.querySelector('.cta-card__call');
+        if (call) {
+            call.addEventListener('click', function() {
+                A.trackBeacon('call_click', { time_since_view_ms: sinceView() });
+            });
+        }
+
+        // Scroll-depth markers: fire once each at >=50% visibility.
+        if ('IntersectionObserver' in window) {
+            var marks = [
+                { name: 'timer_visible',   el: document.querySelector('.cta-card') },
+                { name: 'stats_visible',   el: document.querySelector('.prequal__stats') }
+            ];
+            marks.forEach(function(m) {
+                if (!m.el) return;
+                var io = new IntersectionObserver(function(entries) {
+                    entries.forEach(function(en) {
+                        if (!en.isIntersecting) return;
+                        io.disconnect();
+                        A.track(m.name, { time_since_view_ms: sinceView() });
+                    });
+                }, { threshold: 0.5 });
+                io.observe(m.el);
+            });
+        }
+    });
 </script>
 <?php require __DIR__ . '/includes/footer.php'; ?>

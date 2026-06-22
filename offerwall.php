@@ -142,5 +142,58 @@ require __DIR__ . '/includes/header.php';
         window.addEventListener('resize', syncActive);
         syncActive();
     })();
+
+    // --- Analytics: decline offerwall (post-funnel page) --------------------
+    // Deferred to DOMContentLoaded so the (deferred) Umami script is ready.
+    document.addEventListener('DOMContentLoaded', function() {
+        var A = window.TDOAnalytics;
+        if (!A) return;
+        var PAGE = 'decline_offerwall';
+
+        function offerOf(card) {
+            var name = card && card.querySelector('.ow-card__name');
+            return name ? (name.textContent || '').trim() : '';
+        }
+
+        // Page landing.
+        A.track(PAGE + '_view', {});
+
+        var cards = Array.prototype.slice.call(document.querySelectorAll('.ow-card'));
+
+        // Offer/card scrolls into view — fire once per card.
+        if ('IntersectionObserver' in window) {
+            var io = new IntersectionObserver(function(entries) {
+                entries.forEach(function(en) {
+                    if (!en.isIntersecting) return;
+                    var card = en.target;
+                    io.unobserve(card);
+                    var i = cards.indexOf(card);
+                    A.track(PAGE + '_offer_impression', { offer: offerOf(card), position: i + 1 });
+                });
+            }, { threshold: 0.5 });
+            cards.forEach(function(card) { io.observe(card); });
+        }
+
+        // Outbound CTA click — beacon so it survives the navigation/new tab.
+        document.addEventListener('click', function(ev) {
+            var cta = ev.target.closest && ev.target.closest('.ow-card__cta');
+            if (!cta) return;
+            var card = cta.closest('.ow-card');
+            A.trackBeacon(PAGE + '_offer_click', {
+                offer: offerOf(card),
+                position: cards.indexOf(card) + 1,
+                href: cta.getAttribute('href') || ''
+            });
+        });
+
+        // Any disclosure/accordion expanded (none on the wall today; wired for
+        // when one is added — <details> or [data-disclosure]).
+        document.addEventListener('toggle', function(ev) {
+            var d = ev.target;
+            if (d && d.tagName === 'DETAILS' && d.open) {
+                A.track(PAGE + '_why_expand', { offer: offerOf(d.closest('.ow-card')) });
+            }
+        }, true);
+    });
 </script>
 <?php require __DIR__ . '/includes/footer.php'; ?>
