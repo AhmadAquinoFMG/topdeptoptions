@@ -253,7 +253,10 @@ require __DIR__ . '/includes/header.php';
         var call = document.querySelector('.cta-card__call');
         if (call) {
             call.addEventListener('click', function() {
-                A.trackBeacon('call_click', { time_since_view_ms: sinceView() });
+                A.trackBeacon('call_click', {
+                    time_since_view_ms: sinceView(),
+                    phone_number: window.__cgNumber || null
+                });
             });
         }
 
@@ -276,5 +279,70 @@ require __DIR__ . '/includes/header.php';
             });
         }
     });
+</script>
+
+<!-- CallGrid: dynamic tracking number for the call CTA -->
+<script>
+(function () {
+  function qp(n) { return new URLSearchParams(location.search).get(n) || ""; }
+  var cgTags = {
+    keyword:    qp("keyword")    || qp("kw")
+  };
+
+  function buildInstance() {
+    var M = window.CallGridModule;
+    if (!M || typeof M.CallGrid !== "function") return false;
+
+    window.__cg = new M.CallGrid({
+      organizationId:   "cmnopd1vu002k07iqj9hif1he",
+      campaignSourceId: "cmou9cyj5009507isx7b2lie6",
+      tags: cgTags
+    });
+
+    console.log("[CallGrid] constructed | tags:", cgTags);
+    // assignedNumber populates asynchronously after the pool responds
+    var tries = 0, t = setInterval(function () {
+      var n = window.__cg.getAssignedNumber && window.__cg.getAssignedNumber();
+      if (n) {
+        clearInterval(t);
+        console.log("[CallGrid] assigned #:", n, "| tags:", window.__cg.tags);
+        applyNumber(n);
+      }
+      else if (++tries > 40) { clearInterval(t); console.warn("[CallGrid] no assigned number after ~10s"); }
+    }, 250);
+    return true;
+  }
+
+  // Swap the static SUPPORT_PHONE in the call CTA for the CallGrid-assigned number.
+  function applyNumber(n) {
+    var call = document.querySelector(".cta-card__call");
+    if (!call) return;
+    var digits = String(n).replace(/\D/g, "");
+    if (!digits) return;
+    // Normalize to 11-digit US (leading 1) for consistent formatting/dialing.
+    if (digits.length === 10) digits = "1" + digits;
+    call.setAttribute("href", "tel:+" + digits);
+    // Pretty-print US numbers as 1-XXX-XXX-XXXX to match SUPPORT_PHONE; leave others raw.
+    var display = (digits.length === 11 && digits[0] === "1")
+      ? digits[0] + "-" + digits.slice(1, 4) + "-" + digits.slice(4, 7) + "-" + digits.slice(7)
+      : n;
+    var numEl = call.querySelector(".cta-card__call-num");
+    if (numEl) numEl.textContent = display;
+    // Expose for the call_click analytics beacon.
+    window.__cgNumber = display;
+  }
+
+  if (!document.querySelector('script[src*="callgrid.com"]')) {
+    var s = document.createElement("script");
+    s.src = "https://cdn.callgrid.com/callgrid.js";
+    // NOTE: no data-* attributes -> suppresses attribute auto-init so we control the instance
+    s.async = true;
+    s.onload = function () { console.log("[CallGrid] onload"); buildInstance(); };
+    s.onerror = function () { console.error("[CallGrid] load failed"); };
+    document.head.appendChild(s);
+  } else {
+    buildInstance();
+  }
+})();
 </script>
 <?php require __DIR__ . '/includes/footer.php'; ?>
