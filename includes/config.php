@@ -86,6 +86,15 @@ define('LP_ENDPOINT', 'https://api.leadprosper.io/direct_post');
 // test submissions (not billed, not delivered). Flip to false for live traffic.
 define('LP_TEST_MODE', filter_var(env('LP_TEST_MODE', 'true'), FILTER_VALIDATE_BOOLEAN));
 
+// MySQL database (Cloudways). Leads are dual-written here (primary) and appended to
+// storage/leads.jsonl (durable fallback). If DB_NAME or DB_USER is empty, or the
+// connection fails, the JSONL write still captures every lead. See includes/db.php.
+define('DB_HOST', (string) env('DB_HOST', '127.0.0.1'));
+define('DB_PORT', (string) env('DB_PORT', '3306'));
+define('DB_NAME', (string) env('DB_NAME', 'pdqhvfnunn'));
+define('DB_USER', (string) env('DB_USER', ''));
+define('DB_PASS', (string) env('DB_PASS', ''));
+
 // Lead-certification scripts. TrustedForm needs no account key (cert URL is created
 // per page load). Jornaya requires a campaign GUID; empty disables the Jornaya script.
 define('TRUSTEDFORM_ENABLED', filter_var(env('TRUSTEDFORM_ENABLED', 'true'), FILTER_VALIDATE_BOOLEAN));
@@ -150,11 +159,25 @@ const TRACKING_PARAMS = [
     'adv1', 'adv2', 'adv3', 'adv4', 'adv5',
 ];
 
+// Google Ads ValueTrack params captured first-touch for the lead_google_ads table.
+// utm_* and gclid/gbraid are already in TRACKING_PARAMS above; these are the extras.
+// NOT forwarded to LeadProsper (that loop iterates TRACKING_PARAMS only).
+const GOOGLE_ADS_PARAMS = ['keyword', 'matchtype', 'network', 'device', 'wbraid'];
+
+// The full set of Google Ads attribution fields: persisted to lead_google_ads,
+// and passed through onto the thank-you URL so client-side tags (CallGrid reads
+// ?keyword, GTM, Bing) still see them after the POST → redirect.
+const GOOGLE_ADS_FIELDS = [
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+    'keyword', 'matchtype', 'network', 'device', 'gclid', 'gbraid', 'wbraid',
+];
+
 // Alternate query-param spellings that map to a canonical tracking key, so traffic
 // sources using a different name (e.g. Everflow's {transaction_id} arriving as
 // _ef_transaction_id) still populate the same field. The canonical key wins if present.
 const TRACKING_ALIASES = [
     'ef_transaction_id' => ['_ef_transaction_id', 'transaction_id', 'tid'],
+    'keyword'           => ['kw'],
 ];
 
 // US states (+ DC) for the address step and LeadProsper's 2-letter `state` field.
@@ -203,6 +226,12 @@ function capture_tracking(): void
         $_SESSION['tracking'] = [];
     }
     foreach (TRACKING_PARAMS as $key) {
+        if (!isset($_SESSION['tracking'][$key]) && isset($_GET[$key]) && $_GET[$key] !== '') {
+            $_SESSION['tracking'][$key] = substr(trim((string) $_GET[$key]), 0, 255);
+        }
+    }
+    // Google Ads ValueTrack extras (kept out of TRACKING_PARAMS so they aren't forwarded to LP).
+    foreach (GOOGLE_ADS_PARAMS as $key) {
         if (!isset($_SESSION['tracking'][$key]) && isset($_GET[$key]) && $_GET[$key] !== '') {
             $_SESSION['tracking'][$key] = substr(trim((string) $_GET[$key]), 0, 255);
         }

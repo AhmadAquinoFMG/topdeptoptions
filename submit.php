@@ -3,6 +3,7 @@ require __DIR__ . '/includes/config.php';
 require __DIR__ . '/includes/firebase.php';
 require __DIR__ . '/includes/equifax.php';
 require __DIR__ . '/includes/leadprosper.php';
+require __DIR__ . '/includes/db.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: /');
@@ -168,10 +169,13 @@ if (!$errors) {
     if (!is_dir($storeDir)) {
         @mkdir($storeDir, 0775, true);
     }
+    $leadId = bin2hex(random_bytes(8));
     $record = $data;
+    $record['lead_id'] = $leadId;
     $record['submitted_at'] = date('c');
     $record['tracking'] = $tracking;
     $record['outcome'] = $qualifies ? 'qualified' : 'offerwall';
+    $record['debt_qualified'] = $qualifies;
     $record['equifax'] = $equifax;
     $record['leadprosper'] = $lp;
     @file_put_contents(
@@ -180,26 +184,50 @@ if (!$errors) {
         FILE_APPEND | LOCK_EX
     );
 
+    // Primary store: insert into the database. Fails soft — the JSONL append
+    // above is the durable fallback, so a DB outage never blocks the lead.
+    db_insert_lead($record);
+
     // Rotate CSRF token to prevent resubmission, then redirect (PRG pattern).
     unset($_SESSION['csrf']);
+
+    // Routing outcome surfaced on the destination page URL, for client-side tags
+    // to read/showcase. debt_total mirrors the self-reported debt_amount bucket;
+    // the qualified flags reflect the routing decision (thank-you vs offerwall).
+    $outcomeParams = [
+        'debt_total'          => $data['debt_amount'],
+        'debt_qualified_flag' => $qualifies ? 'true' : 'false',
+        'verified_debt_10k'   => $qualifies ? 'true' : 'false',
+    ];
 
     if (!$qualifies) {
         // Decline offerwall: keep session attribution so the offerwall can resolve
         // CTA links by affid. Personalize the heading with the first name.
         $_SESSION['lead_offerwall'] = ['first_name' => $data['first_name']];
-        header('Location: /offerwall.php');
+        header('Location: /offerwall.php?' . http_build_query($outcomeParams));
         exit;
     }
 
     // Qualified: stash a one-time flash for the thank-you page, clear attribution.
     $_SESSION['lead_success'] = [
+        'lead_id'     => $leadId,
         'first_name'  => $data['first_name'],
         'email'       => $data['email'],
         'phone'       => $data['phone'],
         'debt_amount' => $data['debt_amount'],
     ];
+
+    // Carry Google Ads attribution onto the thank-you URL so client-side tags
+    // (CallGrid reads ?keyword, plus GTM/Bing) still see them after the redirect.
+    $passThrough = [];
+    foreach (GOOGLE_ADS_FIELDS as $k) {
+        if (!empty($tracking[$k])) {
+            $passThrough[$k] = $tracking[$k];
+        }
+    }
+
     unset($_SESSION['tracking']);
-    header('Location: /thank-you.php');
+    header('Location: /thank-you.php?' . http_build_query($outcomeParams + $passThrough));
     exit;
 }
 

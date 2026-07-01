@@ -7,6 +7,9 @@ unset($_SESSION['lead_success']);
 
 $first   = $lead['first_name'] ?? '';
 $telHref = '+' . preg_replace('/\D/', '', SUPPORT_PHONE);
+$leadId  = $lead['lead_id'] ?? '';
+// Fresh token for the client-side CallGrid number callback (submit.php cleared the old one).
+$cgCsrf  = $leadId !== '' ? csrf_token() : '';
 
 /** Rough debt midpoint + "save up to" figure from the selected range. */
 function tdo_savings_estimate(?string $bucket): array
@@ -284,6 +287,9 @@ require __DIR__ . '/includes/header.php';
 <!-- CallGrid: dynamic tracking number for the call CTA -->
 <script>
 (function () {
+  var LEAD_ID = <?= json_encode($leadId, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  var CG_CSRF = <?= json_encode($cgCsrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
   function qp(n) { return new URLSearchParams(location.search).get(n) || ""; }
   var cgTags = {
     keyword:    qp("keyword")    || qp("kw")
@@ -330,6 +336,22 @@ require __DIR__ . '/includes/header.php';
     if (numEl) numEl.textContent = display;
     // Expose for the call_click analytics beacon.
     window.__cgNumber = display;
+    // Persist the assigned number against the lead (server records it in leads.jsonl).
+    storeNumber(display);
+  }
+
+  // Post the assigned number back to the server, correlated to the lead.
+  function storeNumber(display) {
+    if (!LEAD_ID || !CG_CSRF || window.__cgStored) return;
+    window.__cgStored = true;
+    try {
+      fetch("/callgrid-track.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({ csrf: CG_CSRF, lead_id: LEAD_ID, phone_number: display })
+      }).catch(function () {});
+    } catch (e) { /* non-blocking */ }
   }
 
   if (!document.querySelector('script[src*="callgrid.com"]')) {
