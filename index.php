@@ -25,6 +25,8 @@ $token = csrf_token();
                 <input type="hidden" name="hid_ip_address" id="hid_ip_address">
                 <input type="hidden" name="hid_affid" id="hid_affid" value="<?= e($_SESSION['tracking']['affid'] ?? '') ?>">
                 <input type="hidden" name="hid_ef_tid" id="hid_ef_tid" value="<?= e($_SESSION['tracking']['ef_transaction_id'] ?? '') ?>">
+                <!-- Analytics per-visit session id, populated client-side; carried to the thank-you URL to match CallGrid reports. -->
+                <input type="hidden" name="session_id" id="session_id">
 
                 <div class="steps">
                     <!-- Step 1 -->

@@ -199,6 +199,12 @@ if (!$errors) {
         'debt_qualified_flag' => $qualifies ? 'true' : 'false',
         'verified_debt_10k'   => $qualifies ? 'true' : 'false',
     ];
+    // Analytics session id (client-set hidden field) — carried onto the destination
+    // URL and passed to CallGrid as a custom tag for matching call reports.
+    $sessionId = field('session_id');
+    if ($sessionId !== '') {
+        $outcomeParams['session_id'] = $sessionId;
+    }
 
     if (!$qualifies) {
         // Decline offerwall: keep session attribution so the offerwall can resolve

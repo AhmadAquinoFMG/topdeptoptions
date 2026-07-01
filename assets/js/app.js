@@ -479,6 +479,13 @@
             } catch (e) {}
         }
 
+        // Analytics session id into a hidden field, so the server can carry it onto the
+        // thank-you/offerwall URL and match CallGrid call reports back to this visit.
+        var sidField = document.getElementById('session_id');
+        if (sidField && !sidField.value && A && A.sessionId) {
+            try { sidField.value = A.sessionId(); } catch (e) {}
+        }
+
         var https = document.location.protocol === 'https:';
 
         // TrustedForm — populates xxTrustedFormCertUrl / xxTrustedFormPingUrl by name.

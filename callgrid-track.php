@@ -35,8 +35,9 @@ if (!csrf_verify($body['csrf'] ?? null)) {
     exit;
 }
 
-$leadId = trim((string)($body['lead_id'] ?? ''));
-$number = trim((string)($body['phone_number'] ?? ''));
+$leadId    = trim((string)($body['lead_id'] ?? ''));
+$number    = trim((string)($body['phone_number'] ?? ''));
+$sessionId = substr(trim((string)($body['session_id'] ?? '')), 0, 64);
 
 // lead_id is a 16-char hex string (bin2hex of 8 random bytes) from submit.php.
 if (!preg_match('/^[a-f0-9]{16}$/', $leadId)) {
@@ -52,16 +53,19 @@ if (!preg_match('/\d/', $number)) {
     exit;
 }
 
+$ip = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+
 $event = [
     'type'         => 'callgrid_assignment',
     'lead_id'      => $leadId,
+    'session_id'   => $sessionId,
     'phone_number' => $number,
     'assigned_at'  => date('c'),
-    'ip'           => $_SERVER['REMOTE_ADDR'] ?? '',
+    'ip'           => $ip,
 ];
 
 // Primary store: record the assigned number in lead_callgrid, matched by lead_id.
-$updated = db_update_callgrid($leadId, $number, (string)($_SERVER['REMOTE_ADDR'] ?? ''));
+$updated = db_update_callgrid($leadId, $number, $ip, $sessionId);
 
 // Durable fallback: append a correlated event to leads.jsonl (append-only).
 $storeDir = __DIR__ . '/storage';

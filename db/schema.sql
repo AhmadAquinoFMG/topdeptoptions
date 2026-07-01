@@ -105,11 +105,13 @@ CREATE TABLE IF NOT EXISTS lead_google_ads (
 CREATE TABLE IF NOT EXISTS lead_callgrid (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   lead_id       CHAR(16)        NOT NULL,
+  session_id    VARCHAR(64)     NOT NULL DEFAULT '',   -- analytics per-visit UUID; matches CallGrid call reports
   phone_number  VARCHAR(32)     NOT NULL,
   ip            VARCHAR(45)     NOT NULL DEFAULT '',
   assigned_at   DATETIME        NOT NULL,
   created_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uniq_lead_id (lead_id),
+  KEY idx_session_id (session_id),
   CONSTRAINT fk_callgrid_lead FOREIGN KEY (lead_id) REFERENCES leads (lead_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

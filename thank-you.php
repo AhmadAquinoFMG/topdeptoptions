@@ -291,9 +291,24 @@ require __DIR__ . '/includes/header.php';
   var CG_CSRF = <?= json_encode($cgCsrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
   function qp(n) { return new URLSearchParams(location.search).get(n) || ""; }
+  // Prefer the session_id carried on the URL from submit; fall back to the live
+  // analytics session id (same per-visit UUID, kept in sessionStorage).
+  var SESSION_ID = qp("session_id")
+    || (window.TDOAnalytics && window.TDOAnalytics.sessionId ? window.TDOAnalytics.sessionId() : "");
   var cgTags = {
-    keyword:    qp("keyword")    || qp("kw")
+    keyword:      qp("keyword") || qp("kw"),
+    session_id:   SESSION_ID,       // join key: matches lead_callgrid.session_id
+    lead_id:      LEAD_ID,          // exact per-lead match
+    gclid:        qp("gclid"),      // Google Ads call-conversion attribution
+    utm_campaign: qp("utm_campaign"),
+    utm_source:   qp("utm_source"),
+    utm_medium:   qp("utm_medium"),
+    matchtype:    qp("matchtype"),
+    network:      qp("network"),
+    device:       qp("device")
   };
+  // Drop empty tags so CallGrid reports aren't cluttered with blank custom params.
+  Object.keys(cgTags).forEach(function (k) { if (!cgTags[k]) delete cgTags[k]; });
 
   function buildInstance() {
     var M = window.CallGridModule;
@@ -349,7 +364,7 @@ require __DIR__ . '/includes/header.php';
         method: "POST",
         headers: { "Content-Type": "application/json" },
         keepalive: true,
-        body: JSON.stringify({ csrf: CG_CSRF, lead_id: LEAD_ID, phone_number: display })
+        body: JSON.stringify({ csrf: CG_CSRF, lead_id: LEAD_ID, phone_number: display, session_id: SESSION_ID })
       }).catch(function () {});
     } catch (e) { /* non-blocking */ }
   }

@@ -201,7 +201,7 @@ function db_insert_google_ads(PDO $pdo, string $leadId, array $t): void
  * the prior number. Returns true on success, false if the DB is unavailable or
  * the write fails (e.g. no matching lead row, via the foreign key).
  */
-function db_update_callgrid(string $leadId, string $number, string $ip = ''): bool
+function db_update_callgrid(string $leadId, string $number, string $ip = '', string $sessionId = ''): bool
 {
     $pdo = db();
     if (!$pdo) {
@@ -209,14 +209,15 @@ function db_update_callgrid(string $leadId, string $number, string $ip = ''): bo
     }
     try {
         $stmt = $pdo->prepare(
-            'INSERT INTO lead_callgrid (lead_id, phone_number, ip, assigned_at)
-             VALUES (:lead_id, :num, :ip, NOW())
+            'INSERT INTO lead_callgrid (lead_id, session_id, phone_number, ip, assigned_at)
+             VALUES (:lead_id, :session_id, :num, :ip, NOW())
              ON DUPLICATE KEY UPDATE
+                session_id   = VALUES(session_id),
                 phone_number = VALUES(phone_number),
                 ip           = VALUES(ip),
                 assigned_at  = NOW()'
         );
-        $stmt->execute([':lead_id' => $leadId, ':num' => $number, ':ip' => $ip]);
+        $stmt->execute([':lead_id' => $leadId, ':session_id' => $sessionId, ':num' => $number, ':ip' => $ip]);
         return true;
     } catch (Throwable $ex) {
         error_log('[db] update callgrid failed: ' . $ex->getMessage());
