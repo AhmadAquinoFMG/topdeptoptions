@@ -305,7 +305,9 @@ require __DIR__ . '/includes/header.php';
     utm_medium:   qp("utm_medium"),
     matchtype:    qp("matchtype"),
     network:      qp("network"),
-    device:       qp("device")
+    device:       qp("device"),
+    debt_total:         qp("debt_total"),         // lead value context on the call record
+    debt_qualified_flag: qp("debt_qualified_flag")
   };
   // Drop empty tags so CallGrid reports aren't cluttered with blank custom params.
   Object.keys(cgTags).forEach(function (k) { if (!cgTags[k]) delete cgTags[k]; });
