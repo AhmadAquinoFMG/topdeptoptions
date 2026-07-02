@@ -236,6 +236,10 @@ input:focus, select:focus {
     margin: 8px 0 16px; line-height: 1.45;
 }
 .consent input { margin-top: 3px; accent-color: var(--blue); }
+.consent-text {
+    font-size: 0.78rem; color: var(--muted);
+    margin: 8px 0 16px; line-height: 1.45;
+}
 
 /* Read-through authorization gate */
 .disclosure { margin: 8px 0 16px; }

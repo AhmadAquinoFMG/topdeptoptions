@@ -175,10 +175,10 @@ $token = csrf_token();
                         <!-- Set by the phone-auth flow once verification succeeds -->
                         <input type="hidden" name="phone_verified" id="phone_verified" data-required>
                         <input type="hidden" name="firebase_token" id="firebase_token">
-                        <label class="consent">
-                            <input type="checkbox" name="contact_consent" value="1" data-required>
-                            <span>By checking this box, I agree to be contacted by <?= e(SITE_NAME) ?> and its partners at the number provided, including by automated dialing and prerecorded messages, even if my number is on a Do Not Call list. Consent is not a condition of purchase. Message and data rates may apply.</span>
-                        </label>
+                        <!-- Contact consent is captured by the affirmative act of verifying + submitting
+                             (no separate checkbox); the disclosure text stays visible next to the action. -->
+                        <input type="hidden" name="contact_consent" value="1">
+                        <p class="consent-text">By verifying your phone number and submitting, I agree to be contacted by <?= e(SITE_NAME) ?> and its partners at the number provided, including by automated dialing and prerecorded messages, even if my number is on a Do Not Call list. Consent is not a condition of purchase. Message and data rates may apply.</p>
                         <p class="error-msg" data-error>Please verify your phone number and provide consent.</p>
                     </fieldset>
                 </div>

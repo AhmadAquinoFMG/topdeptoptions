@@ -113,10 +113,11 @@
         var firstField = steps[current].querySelector('input, select');
         if (firstField) { try { firstField.focus(); } catch (e) {} }
 
-        // If a step gates the Next button behind a disclosure that fits without
-        // scrolling, it's already fully visible — mark it read. Then sync the button.
+        // The authorization disclosure stays visible, but reading it is no longer a
+        // scroll-gated requirement: mark it read on mount so the consent is captured
+        // by the affirmative Next/Submit click without forcing the user to scroll.
         var box = steps[current].querySelector('[data-disclosure-scroll]');
-        if (box && box.scrollHeight <= box.clientHeight + 4) { markRead(box); }
+        if (box) { markRead(box); }
         applyGate();
 
         trackView();
@@ -128,13 +129,10 @@
         var gate = step.querySelector('[data-disclosure]');
         if (gate && !gate.classList.contains('is-read')) return false;
 
-        // Verification step: phone OTP must be verified AND contact consent ticked.
+        // Verification step: phone OTP must be verified. Contact consent is captured
+        // via the disclosure + submit action, so there's no checkbox to gate on.
         var verified = step.querySelector('#phone_verified');
-        if (verified) {
-            if (verified.value !== '1') return false;
-            var consent = step.querySelector('input[name="contact_consent"]');
-            if (consent && !consent.checked) return false;
-        }
+        if (verified && verified.value !== '1') return false;
         return true;
     }
 
@@ -382,14 +380,25 @@
         var dob = document.getElementById('dob');
         if (!dob || typeof flatpickr === 'undefined') return;
         var max = new Date();
-        max.setFullYear(max.getFullYear() - 18);
+        max.setFullYear(max.getFullYear() - 18);   // must be 18+
+        var min = new Date();
+        min.setFullYear(min.getFullYear() - 100);   // bounds the year field
         flatpickr(dob, {
-            dateFormat: 'Y-m-d',       // value submitted to the server
-            altInput: true,            // friendly display, hidden real field
+            dateFormat: 'Y-m-d',            // value submitted to the server
+            altInput: true,                 // friendly display, hidden real field
             altFormat: 'F j, Y',
-            maxDate: max,              // cannot pick a date younger than 18
-            allowInput: true,
-            disableMobile: true        // use Flatpickr UI on mobile too
+            maxDate: max,
+            minDate: min,
+            monthSelectorType: 'dropdown',  // pick the month from a dropdown, not arrows
+            allowInput: true,               // users can also just type the date
+            disableMobile: true,            // use Flatpickr UI on mobile too
+            onOpen: function (selectedDates, dateStr, inst) {
+                // Open near a typical birth year (~40) so users aren't stranded at the
+                // 18-years-ago edge and clicking back through decades of months.
+                if (!selectedDates.length) {
+                    inst.jumpToDate(new Date(max.getFullYear() - 22, 0, 1));
+                }
+            }
         });
     }
 
