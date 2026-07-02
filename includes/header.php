@@ -20,7 +20,6 @@ $pageTitle = $pageTitle ?? SITE_NAME;
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="/assets/css/style.css?v=<?= @filemtime(__DIR__ . '/../assets/css/style.css') ?>">
     <script defer src="https://cloud.umami.is/script.js" data-website-id="2ee9bab4-05ac-4d89-84aa-c05fdbdec0dd"></script>
     <!-- Analytics core: loaded synchronously so window.TDOAnalytics is defined before any page's inline scripts run. -->

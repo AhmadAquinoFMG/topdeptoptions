@@ -375,31 +375,32 @@
         });
     })();
 
-    // --- Date of birth: Flatpickr calendar (keeps Y-m-d in the real field) ---
-    function initDobPicker() {
+    // --- Date of birth: Month / Day / Year dropdowns compose the hidden Y-m-d field ---
+    function initDobSelects() {
         var dob = document.getElementById('dob');
-        if (!dob || typeof flatpickr === 'undefined') return;
-        var max = new Date();
-        max.setFullYear(max.getFullYear() - 18);   // must be 18+
-        var min = new Date();
-        min.setFullYear(min.getFullYear() - 100);   // bounds the year field
-        flatpickr(dob, {
-            dateFormat: 'Y-m-d',            // value submitted to the server
-            altInput: true,                 // friendly display, hidden real field
-            altFormat: 'F j, Y',
-            maxDate: max,
-            minDate: min,
-            monthSelectorType: 'dropdown',  // pick the month from a dropdown, not arrows
-            allowInput: true,               // users can also just type the date
-            disableMobile: true,            // use Flatpickr UI on mobile too
-            onOpen: function (selectedDates, dateStr, inst) {
-                // Open near a typical birth year (~40) so users aren't stranded at the
-                // 18-years-ago edge and clicking back through decades of months.
-                if (!selectedDates.length) {
-                    inst.jumpToDate(new Date(max.getFullYear() - 22, 0, 1));
-                }
+        var m = document.getElementById('dob_month');
+        var d = document.getElementById('dob_day');
+        var y = document.getElementById('dob_year');
+        if (!dob || !m || !d || !y) return;
+
+        function compose() {
+            if (m.value && d.value && y.value) {
+                // Reject impossible dates (e.g. Feb 31) by round-tripping through Date:
+                // if the parts don't survive, clear the field so validation catches it.
+                var dt = new Date(+y.value, +m.value - 1, +d.value);
+                var ok = dt.getFullYear() === +y.value &&
+                         dt.getMonth() === +m.value - 1 &&
+                         dt.getDate() === +d.value;
+                dob.value = ok ? (y.value + '-' + m.value + '-' + d.value) : '';
+            } else {
+                dob.value = '';
             }
-        });
+        }
+        // Compose on any change; auto-advance to the next field for a quick tab-like flow.
+        m.addEventListener('change', function () { compose(); if (m.value) d.focus(); });
+        d.addEventListener('change', function () { compose(); if (d.value) y.focus(); });
+        y.addEventListener('change', compose);
+        compose();
     }
 
     // --- Address: Google Places Autocomplete ---
@@ -602,7 +603,7 @@
         }
     }
 
-    initDobPicker();
+    initDobSelects();
     loadGoogleMaps();
     loadCompliance();
 

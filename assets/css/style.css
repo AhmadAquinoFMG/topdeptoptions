@@ -241,6 +241,26 @@ input:focus, select:focus {
     margin: 8px 0 16px; line-height: 1.45;
 }
 
+/* Date-of-birth: Month / Day / Year always share one line, comfortably.
+   Overrides the .field-row single-column collapse on small screens. */
+.dob-row { grid-template-columns: 1.5fr 0.9fr 1.15fr; gap: 10px; }
+.dob-row select {
+    width: 100%;
+    padding-left: 12px;
+    padding-right: 26px;              /* room for the arrow, tighter than default */
+    background-position: right 9px center;
+    text-overflow: ellipsis;
+}
+@media (max-width: 480px) {
+    .dob-row { gap: 8px; }
+    .dob-row select {
+        font-size: 0.95rem;
+        padding-left: 10px;
+        padding-right: 22px;
+        background-position: right 7px center;
+    }
+}
+
 /* Read-through authorization gate */
 .disclosure { margin: 8px 0 16px; }
 .disclosure__scroll {

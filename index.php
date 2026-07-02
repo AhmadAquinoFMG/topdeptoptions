@@ -3,6 +3,15 @@ require __DIR__ . '/includes/config.php';
 $pageTitle = SITE_NAME . ' — See If You Qualify For Debt Relief';
 require __DIR__ . '/includes/header.php';
 $token = csrf_token();
+
+// Date-of-birth dropdown ranges: must be 18+, up to 100 years back.
+$dobMaxYear = (int) date('Y') - 18;
+$dobMinYear = (int) date('Y') - 100;
+$dobMonths  = [
+    '01' => 'January', '02' => 'February', '03' => 'March', '04' => 'April',
+    '05' => 'May',     '06' => 'June',     '07' => 'July',  '08' => 'August',
+    '09' => 'September','10' => 'October',  '11' => 'November', '12' => 'December',
+];
 ?>
 <!-- Full-width progress bar pinned below the header -->
 <div class="topbar">
@@ -101,9 +110,30 @@ $token = csrf_token();
                         <h2 class="step__title">What is your date of birth?</h2>
                         <p class="step__sub">You must be at least 18 years old to qualify.</p>
                         <div class="field">
-                            <label class="field-label" for="dob">Date of birth</label>
-                            <input type="text" id="dob" name="dob" data-required data-adult autocomplete="bday" placeholder="Select your date of birth">
-                            <p class="error-msg" data-error>Please enter a valid date of birth (18+).</p>
+                            <label class="field-label" for="dob_month">Date of birth</label>
+                            <div class="field-row dob-row">
+                                <select id="dob_month" aria-label="Birth month" autocomplete="bday-month" data-dob data-required>
+                                    <option value="">Month</option>
+                                    <?php foreach ($dobMonths as $mVal => $mName): ?>
+                                        <option value="<?= $mVal ?>"><?= $mName ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <select id="dob_day" aria-label="Birth day" autocomplete="bday-day" data-dob data-required>
+                                    <option value="">Day</option>
+                                    <?php for ($d = 1; $d <= 31; $d++): $dd = str_pad((string) $d, 2, '0', STR_PAD_LEFT); ?>
+                                        <option value="<?= $dd ?>"><?= $d ?></option>
+                                    <?php endfor; ?>
+                                </select>
+                                <select id="dob_year" aria-label="Birth year" autocomplete="bday-year" data-dob data-required>
+                                    <option value="">Year</option>
+                                    <?php for ($y = $dobMaxYear; $y >= $dobMinYear; $y--): ?>
+                                        <option value="<?= $y ?>"><?= $y ?></option>
+                                    <?php endfor; ?>
+                                </select>
+                            </div>
+                            <!-- Composed Y-m-d value submitted to the server (built client-side from the selects). -->
+                            <input type="hidden" id="dob" name="dob" data-required data-adult autocomplete="bday">
+                            <p class="error-msg" data-error>Please select a valid date of birth (18+).</p>
                         </div>
                     </fieldset>
 
