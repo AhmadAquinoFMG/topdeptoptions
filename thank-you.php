@@ -300,6 +300,8 @@ require __DIR__ . '/includes/header.php';
     session_id:   SESSION_ID,       // join key: matches lead_callgrid.session_id
     lead_id:      LEAD_ID,          // exact per-lead match
     gclid:        qp("gclid"),      // Google Ads call-conversion attribution
+    gbraid:       qp("gbraid"),     // Google Ads click id (app/web, gclid-less)
+    wbraid:       qp("wbraid"),     // Google Ads click id (web, consent-mode)
     utm_campaign: qp("utm_campaign"),
     utm_source:   qp("utm_source"),
     utm_medium:   qp("utm_medium"),
@@ -307,7 +309,8 @@ require __DIR__ . '/includes/header.php';
     network:      qp("network"),
     device:       qp("device"),
     debt_total:         qp("debt_total"),         // lead value context on the call record
-    debt_qualified_flag: qp("debt_qualified_flag")
+    debt_qualified_flag: qp("debt_qualified_flag"),
+    debt_bucket:        qp("debt_bucket")          // greater_than_10k | less_than_10k (Equifax-verified)
   };
   // Drop empty tags so CallGrid reports aren't cluttered with blank custom params.
   Object.keys(cgTags).forEach(function (k) { if (!cgTags[k]) delete cgTags[k]; });

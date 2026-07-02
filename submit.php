@@ -198,6 +198,9 @@ if (!$errors) {
         'debt_total'          => $data['debt_amount'],
         'debt_qualified_flag' => $qualifies ? 'true' : 'false',
         'verified_debt_10k'   => $qualifies ? 'true' : 'false',
+        // Coarse bucket off the Equifax-verified total debt (the same >=$10k test
+        // that drives routing), surfaced as a CallGrid tag on the call record.
+        'debt_bucket'         => $qualifies ? 'greater_than_10k' : 'less_than_10k',
     ];
     // Analytics session id (client-set hidden field) — carried onto the destination
     // URL and passed to CallGrid as a custom tag for matching call reports.
