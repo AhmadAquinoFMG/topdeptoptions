@@ -125,16 +125,23 @@
                 }
             });
 
+            // IMPORTANT: use a CORS-safelisted content type (text/plain), not
+            // application/json. cloud.umami.is is cross-origin, and application/json
+            // is not safelisted, so it triggers a CORS preflight — which sendBeacon
+            // cannot perform, so the browser silently drops the beacon. text/plain is
+            // a "simple request" that sends without preflight; the collector parses
+            // the JSON body regardless of the declared type.
             if (w.navigator && typeof w.navigator.sendBeacon === 'function') {
-                var blob = new Blob([body], { type: 'application/json' });
+                var blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
                 if (w.navigator.sendBeacon(ENDPOINT, blob)) return;
             }
 
-            // Fallback when sendBeacon is unavailable or refused the payload.
+            // Fallback when sendBeacon is unavailable or refused the payload. Same
+            // text/plain reasoning: keep it a simple request so no-cors delivers it.
             if (typeof w.fetch === 'function') {
                 w.fetch(ENDPOINT, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
                     body: body,
                     keepalive: true,
                     mode: 'no-cors'
